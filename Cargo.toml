@@ -3,4 +3,11 @@ name = "rpos"
 version = "0.0.1"
 edition = "2021"
 
+authors = ["kohbis <dev.kohbis@gmail.com>"]
+categories = ["data-structures"]
+description = "position manager in 2D"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/kohbis/rpos"
+
 [dependencies]
