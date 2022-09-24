@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Cursor {
     pub line: u32,
     pub column: u32,

@@ -2,9 +2,9 @@ use crate::cursor::Cursor;
 
 #[derive(Debug)]
 pub struct Table {
-    height: u32,
-    width: u32,
-    cursor: Cursor,
+    pub height: u32,
+    pub width: u32,
+    pub cursor: Cursor,
 }
 
 impl Table {
@@ -38,5 +38,18 @@ impl Table {
         if self.cursor.column < self.width - 1 {
             self.cursor.right();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn initialize_table() {
+        let table = Table::new(3, 4);
+        assert_eq!(table.height, 3);
+        assert_eq!(table.width, 4);
+        assert_eq!(table.cursor, Cursor { line: 0, column: 0 });
     }
 }
