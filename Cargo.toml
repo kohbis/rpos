@@ -5,7 +5,7 @@ edition = "2021"
 
 authors = ["kohbis <dev.kohbis@gmail.com>"]
 categories = ["data-structures"]
-description = "position manager in 2D"
+description = "Cursor Manager on Table"
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/kohbis/rpos"
