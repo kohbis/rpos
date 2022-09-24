@@ -1,4 +1,4 @@
 # rpos
 
-rpos is the position manger in 2D.
+rpos is the cursor manager on table.
 
