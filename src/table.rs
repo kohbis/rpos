@@ -40,16 +40,3 @@ impl Table {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn initialize_table() {
-        let table = Table::new(3, 4);
-        assert_eq!(table.height, 3);
-        assert_eq!(table.width, 4);
-        assert_eq!(table.cursor, Cursor { line: 0, column: 0 });
-    }
-}
