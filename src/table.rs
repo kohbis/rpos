@@ -2,13 +2,13 @@ use crate::cursor::Cursor;
 
 #[derive(Debug)]
 pub struct Table {
-    pub height: u32,
-    pub width: u32,
+    pub height: i32,
+    pub width: i32,
     pub cursor: Cursor,
 }
 
 impl Table {
-    pub fn new(height: u32, width: u32) -> Self {
+    pub fn new(height: i32, width: i32) -> Self {
         Self {
             height,
             width,

@@ -1,7 +1,7 @@
 #[derive(Debug, PartialEq)]
 pub struct Cursor {
-    pub line: u32,
-    pub column: u32,
+    pub line: i32,
+    pub column: i32,
 }
 
 impl Cursor {
