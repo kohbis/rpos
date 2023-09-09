@@ -7,6 +7,6 @@ mod tests {
         let table = Table::new(3, 4);
         assert_eq!(table.height, 3);
         assert_eq!(table.width, 4);
-        assert_eq!((table.cursor.line, table.cursor.column), (0, 0));
+        assert_eq!(table.cursor.current(), (0, 0));
     }
 }
