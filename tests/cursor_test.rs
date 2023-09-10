@@ -24,4 +24,20 @@ mod tests {
         cursor.left();
         assert_eq!(cursor.current(), (0, 0));
     }
+
+    #[test]
+    fn set_cursor() {
+        let mut cursor = Table::new(3, 4).cursor;
+
+        cursor.set((2, 3)).unwrap();
+        assert_eq!(cursor.current(), (2, 3));
+    }
+
+    #[test]
+    #[should_panic]
+    fn set_cursor_out_of_range() {
+        let mut cursor = Table::new(3, 4).cursor;
+
+        cursor.set((3, 4)).unwrap();
+    }
 }

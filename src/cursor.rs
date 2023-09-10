@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 #[derive(Debug, PartialEq)]
 pub struct Cursor {
     line: i32,
@@ -18,6 +20,15 @@ impl Cursor {
 
     pub fn current(&self) -> (i32, i32) {
         (self.line, self.column)
+    }
+
+    pub fn set(&mut self, (line, column): (i32, i32)) -> Result<()> {
+        if let Err(e) = self.validate((line, column)) {
+            anyhow::bail!("invalid cursor: {}", e)
+        }
+        self.line = line;
+        self.column = column;
+        Ok(())
     }
 
     pub fn up(&mut self) {
@@ -42,5 +53,19 @@ impl Cursor {
         if self.column < self.column_size - 1 {
             self.column += 1
         }
+    }
+
+    fn validate(&self, (line, column): (i32, i32)) -> Result<()> {
+        if line < 0 || column < 0 {
+            anyhow::bail!("line and column must be positive")
+        }
+        if line >= self.line_size || column >= self.column_size {
+            anyhow::bail!(
+                "line and column must be less than line_size: {}, column_size: {}",
+                self.line_size,
+                self.column_size
+            )
+        }
+        Ok(())
     }
 }
