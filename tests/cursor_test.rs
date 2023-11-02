@@ -37,13 +37,10 @@ mod tests {
     fn set_cursor_out_of_range() {
         let mut cursor = Table::new(3, 4).unwrap().cursor;
 
-        assert_eq!(
-            cursor
-                .set((3, 4))
-                .unwrap_err()
-                .to_string()
-                .contains("invalid cursor"),
-            true
-        );
+        assert!(cursor
+            .set((3, 4))
+            .unwrap_err()
+            .to_string()
+            .contains("invalid cursor"));
     }
 }
