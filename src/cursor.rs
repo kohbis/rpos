@@ -56,12 +56,12 @@ impl Cursor {
     }
 
     fn validate(&self, (line, column): (i32, i32)) -> Result<()> {
-        if line < 0 || column < 0 {
-            anyhow::bail!("line and column must be positive")
+        if line.is_negative() || column.is_negative() {
+            anyhow::bail!("line and column must be zero or positive")
         }
         if line >= self.line_size || column >= self.column_size {
             anyhow::bail!(
-                "line and column must be less than line_size: {}, column_size: {}",
+                "line and column must be less than line_size (0-indexed): {}, column_size: {}",
                 self.line_size,
                 self.column_size
             )
