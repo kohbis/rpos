@@ -22,11 +22,27 @@ impl Cursor {
         (self.line, self.column)
     }
 
-    pub fn set(&mut self, (line, column): (usize, usize)) -> Result<()> {
-        if let Err(e) = self.validate((line, column)) {
+    pub fn set(&mut self, line: usize, column: usize) -> Result<()> {
+        if let Err(e) = self.validate(Some(line), Some(column)) {
             anyhow::bail!("invalid cursor: {}", e)
         }
         self.line = line;
+        self.column = column;
+        Ok(())
+    }
+
+    pub fn set_line(&mut self, line: usize) -> Result<()> {
+        if let Err(e) = self.validate(Some(line), None) {
+            anyhow::bail!("invalid cursor: {}", e)
+        }
+        self.line = line;
+        Ok(())
+    }
+
+    pub fn set_column(&mut self, column: usize) -> Result<()> {
+        if let Err(e) = self.validate(None, Some(column)) {
+            anyhow::bail!("invalid cursor: {}", e)
+        }
         self.column = column;
         Ok(())
     }
@@ -55,13 +71,34 @@ impl Cursor {
         }
     }
 
-    fn validate(&self, (line, column): (usize, usize)) -> Result<()> {
-        if line >= self.line_size || column >= self.column_size {
-            anyhow::bail!(
-                "line and column must be less than line_size: {}, column_size: {} (0-indexed)",
-                self.line_size,
-                self.column_size
-            )
+    fn validate(&self, line: Option<usize>, column: Option<usize>) -> Result<()> {
+        match (line, column) {
+            (Some(line), Some(column)) => {
+                if line >= self.line_size || column >= self.column_size {
+                    anyhow::bail!(
+                        "line and column must be less than line_size: {}, column_size: {} (0-indexed)",
+                        self.line_size,
+                        self.column_size
+                    )
+                }
+            }
+            (Some(line), None) => {
+                if line >= self.line_size {
+                    anyhow::bail!(
+                        "line must be less than line_size: {} (0-indexed)",
+                        self.line_size,
+                    )
+                }
+            }
+            (None, Some(column)) => {
+                if column >= self.column_size {
+                    anyhow::bail!(
+                        "column must be less than column_size: {} (0-indexed)",
+                        self.column_size,
+                    )
+                }
+            }
+            (None, None) => {}
         }
         Ok(())
     }
