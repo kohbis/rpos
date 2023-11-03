@@ -50,6 +50,14 @@ jobs:
           release-type: rust
           bump-minor-pre-major: true
           bump-patch-for-minor-pre-major: true
+          changelog-types: >
+            [
+              { "type": "feat", "section": "Features", "hidden": false },
+              { "type": "fix", "section": "Bug Fixes", "hidden": false },
+              { "type": "chore", "section": "Miscellaneous", "hidden": false },
+              { "type": "docs", "section": "Documentation", "hidden": false },
+              { "type": "revert", "section": "Reverts", "hidden": false },
+            ]
     outputs:
       created: ${{ steps.release.outputs.release_created }}
 
