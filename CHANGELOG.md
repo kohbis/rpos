@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/kohbis/rpos/compare/v0.2.2...v0.3.0) (2023-11-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* 🧨 cursor.set() parameters: tuple to multiple values
+
+### Features
+
+* 🎸 add set_line, set_column ([6fdbc22](https://github.com/kohbis/rpos/commit/6fdbc22cd9e3035ca58494e9df9f3f65e9661794))
+
 ## [0.2.2](https://github.com/kohbis/rpos/compare/v0.2.1...v0.2.2) (2023-11-03)
 
 
