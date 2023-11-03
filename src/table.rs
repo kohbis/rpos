@@ -4,13 +4,13 @@ use crate::cursor::Cursor;
 
 #[derive(Debug)]
 pub struct Table {
-    pub height: i32,
-    pub width: i32,
+    pub height: usize,
+    pub width: usize,
     pub cursor: Cursor,
 }
 
 impl Table {
-    pub fn new(height: i32, width: i32) -> Result<Self> {
+    pub fn new(height: usize, width: usize) -> Result<Self> {
         let table = Self {
             height,
             width,
@@ -23,9 +23,9 @@ impl Table {
     }
 
     fn validate(&self) -> Result<()> {
-        if self.height.is_positive() && self.width.is_positive() {
-            return Ok(());
+        if self.height == 0 || self.width == 0 {
+            anyhow::bail!("invalid table size")
         }
-        anyhow::bail!("height and width must be positive")
+        Ok(())
     }
 }

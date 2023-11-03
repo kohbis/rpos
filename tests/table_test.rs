@@ -12,9 +12,9 @@ mod tests {
 
     #[test]
     fn initialize_table_with_negative_height() {
-        assert!(Table::new(-1, 4)
+        assert!(Table::new(0, 4)
             .unwrap_err()
             .to_string()
-            .contains("invalid table"));
+            .contains("invalid table size"));
     }
 }

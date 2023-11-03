@@ -2,14 +2,14 @@ use anyhow::Result;
 
 #[derive(Debug, PartialEq)]
 pub struct Cursor {
-    line: i32,
-    column: i32,
-    line_size: i32,
-    column_size: i32,
+    line: usize,
+    column: usize,
+    line_size: usize,
+    column_size: usize,
 }
 
 impl Cursor {
-    pub fn new((line_size, column_size): (i32, i32)) -> Self {
+    pub fn new((line_size, column_size): (usize, usize)) -> Self {
         Self {
             line: 0,
             column: 0,
@@ -18,11 +18,11 @@ impl Cursor {
         }
     }
 
-    pub fn current(&self) -> (i32, i32) {
+    pub fn current(&self) -> (usize, usize) {
         (self.line, self.column)
     }
 
-    pub fn set(&mut self, (line, column): (i32, i32)) -> Result<()> {
+    pub fn set(&mut self, (line, column): (usize, usize)) -> Result<()> {
         if let Err(e) = self.validate((line, column)) {
             anyhow::bail!("invalid cursor: {}", e)
         }
@@ -55,10 +55,7 @@ impl Cursor {
         }
     }
 
-    fn validate(&self, (line, column): (i32, i32)) -> Result<()> {
-        if line.is_negative() || column.is_negative() {
-            anyhow::bail!("line and column must be zero or positive (0-indexed)")
-        }
+    fn validate(&self, (line, column): (usize, usize)) -> Result<()> {
         if line >= self.line_size || column >= self.column_size {
             anyhow::bail!(
                 "line and column must be less than line_size: {}, column_size: {} (0-indexed)",
