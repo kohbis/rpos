@@ -1,5 +1,5 @@
 ---
-name: CD
+name: Release and Publish
 
 on:
   push:
@@ -53,9 +53,7 @@ jobs:
           changelog-types: >
             [
               { "type": "feat", "section": "Features", "hidden": false },
-              { "type": "fix", "section": "Bug Fixes", "hidden": false },
-              { "type": "chore", "section": "Miscellaneous", "hidden": false },
-              { "type": "docs", "section": "Documentation", "hidden": false }
+              { "type": "fix", "section": "Bug Fixes", "hidden": false }
             ]
     outputs:
       created: ${{ steps.release.outputs.release_created }}
