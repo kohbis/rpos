@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/kohbis/rpos/compare/v0.2.1...v0.2.2) (2023-11-03)
+
+
+### Features
+
+* 🎸 i32 to usize ([aa408e5](https://github.com/kohbis/rpos/commit/aa408e595b3c0a3655f59a50f6e0fa129a06c1d8))
+
 ## [0.2.1](https://github.com/kohbis/rpos/compare/0.2.0...v0.2.1) (2023-11-03)
 
 
