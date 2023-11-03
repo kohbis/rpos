@@ -29,7 +29,7 @@ mod tests {
     fn set_cursor() {
         let mut cursor = Table::new(3, 4).unwrap().cursor;
 
-        cursor.set((2, 3)).unwrap();
+        cursor.set(2, 3).unwrap();
         assert_eq!(cursor.current(), (2, 3));
     }
 
@@ -38,7 +38,45 @@ mod tests {
         let mut cursor = Table::new(3, 4).unwrap().cursor;
 
         assert!(cursor
-            .set((3, 4))
+            .set(3, 4)
+            .unwrap_err()
+            .to_string()
+            .contains("invalid cursor"));
+    }
+
+    #[test]
+    fn set_cursor_line() {
+        let mut cursor = Table::new(3, 4).unwrap().cursor;
+
+        cursor.set_line(2).unwrap();
+        assert_eq!(cursor.current(), (2, 0));
+    }
+
+    #[test]
+    fn set_cursor_line_out_of_range() {
+        let mut cursor = Table::new(3, 4).unwrap().cursor;
+
+        assert!(cursor
+            .set_line(3)
+            .unwrap_err()
+            .to_string()
+            .contains("invalid cursor"));
+    }
+
+    #[test]
+    fn set_cursor_column() {
+        let mut cursor = Table::new(3, 4).unwrap().cursor;
+
+        cursor.set_column(3).unwrap();
+        assert_eq!(cursor.current(), (0, 3));
+    }
+
+    #[test]
+    fn set_cursor_column_out_of_range() {
+        let mut cursor = Table::new(3, 4).unwrap().cursor;
+
+        assert!(cursor
+            .set_column(4)
             .unwrap_err()
             .to_string()
             .contains("invalid cursor"));
