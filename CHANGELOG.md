@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/kohbis/rpos/compare/0.2.0...v0.2.1) (2023-11-03)
+
+
+### Miscellaneous
+
+* 🤖 Release excludes revert ([4c003d0](https://github.com/kohbis/rpos/commit/4c003d0fa35a59f0492763601ce0ad60462912cd))
+* 🤖 Update validation message for table ([65be789](https://github.com/kohbis/rpos/commit/65be78925e4b41b54a529cd63533afcd65f4c192))
+
 ## [0.2.0-alpha.0](https://github.com/kohbis/rpos/compare/0.1.0-alpha.0...v0.2.0-alpha.0) (2023-11-03)
 
 
