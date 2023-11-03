@@ -55,8 +55,7 @@ jobs:
               { "type": "feat", "section": "Features", "hidden": false },
               { "type": "fix", "section": "Bug Fixes", "hidden": false },
               { "type": "chore", "section": "Miscellaneous", "hidden": false },
-              { "type": "docs", "section": "Documentation", "hidden": false },
-              { "type": "revert", "section": "Reverts", "hidden": false },
+              { "type": "docs", "section": "Documentation", "hidden": false }
             ]
     outputs:
       created: ${{ steps.release.outputs.release_created }}
