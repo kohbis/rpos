@@ -11,4 +11,4 @@ readme = "README.md"
 repository = "https://github.com/kohbis/rpos"
 
 [dependencies]
-anyhow = "1.0.93"
+anyhow = "1.0.94"
