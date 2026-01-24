@@ -1,10 +1,11 @@
 ---
-name: Release and Publish
+name: Release and Cargo publish
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build-test:
@@ -17,13 +18,12 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - uses: swatinem/rust-cache@v2
       - name: Build
         run: >
           cargo build
           --locked
-          --verbose
 
       - name: Run fmt check
         run: >
@@ -33,7 +33,6 @@ jobs:
       - name: Run tests
         run: >
           cargo test
-          --verbose
 
   release-please:
     name: Execute release chores
@@ -47,16 +46,11 @@ jobs:
       - uses: google-github-actions/release-please-action@v4
         id: release
         with:
-          release-type: rust
-          bump-minor-pre-major: true
-          bump-patch-for-minor-pre-major: true
-          changelog-types: >
-            [
-              { "type": "feat", "section": "Features", "hidden": false },
-              { "type": "fix", "section": "Bug Fixes", "hidden": false }
-            ]
+          config-file: .github/release-please-config.json
+          manifest-file: .github/release-please-manifest.json
     outputs:
       created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
 
   publish:
     name: Publish to crates.io
@@ -65,10 +59,58 @@ jobs:
     if: needs.release-please.outputs.created
     environment: crates.io
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
+
       - name: Publish
         run: >
           cargo publish
-          --verbose
           --locked
           --token ${{ secrets.CARGO_API_KEY }}
+
+  github-release:
+    name: GitHub release (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: release-please
+    if: needs.release-please.outputs.created
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+        rust: [stable]
+        include:
+          - os: macos-latest
+            artifact_prefix: macos
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            artifact_prefix: linux
+            target: x86_64-unknown-linux-gnu
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Cargo build
+        run: >
+          cargo build
+          --release
+          --target ${{ matrix.target }}
+
+      - name: Packaging final binary
+        shell: bash
+        run: |
+          cd target/${{ matrix.target }}/release
+          strip rpos
+          tar czvf rpos-${{ matrix.artifact_prefix }}.tar.gz rpos
+          shasum -a 256 rpos-${{ matrix.artifact_prefix }}.tar.gz > rpos-${{ matrix.artifact_prefix }}.sha256
+      - name: Releasing assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ needs.release-please.outputs.tag_name }} target/${{ matrix.target }}/release/rpos-${{ matrix.artifact_prefix }}.tar.gz
+          gh release upload ${{ needs.release-please.outputs.tag_name }} target/${{ matrix.target }}/release/rpos-${{ matrix.artifact_prefix }}.sha256
