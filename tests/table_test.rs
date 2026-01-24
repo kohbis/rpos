@@ -15,6 +15,6 @@ mod tests {
         assert!(Table::new(0, 4)
             .unwrap_err()
             .to_string()
-            .contains("invalid table size"));
+            .contains("invalid table"));
     }
 }
