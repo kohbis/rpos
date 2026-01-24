@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::cursor::Cursor;
 
@@ -16,9 +16,7 @@ impl Table {
             width,
             cursor: Cursor::new((height, width)),
         };
-        if let Err(e) = table.validate() {
-            anyhow::bail!("invalid table: {}", e)
-        }
+        table.validate().context("invalid table")?;
         Ok(table)
     }
 

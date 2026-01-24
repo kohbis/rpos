@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 #[derive(Debug, PartialEq)]
 pub struct Cursor {
@@ -23,26 +23,22 @@ impl Cursor {
     }
 
     pub fn set(&mut self, line: usize, column: usize) -> Result<()> {
-        if let Err(e) = self.validate(Some(line), Some(column)) {
-            anyhow::bail!("invalid cursor: {}", e)
-        }
+        self.validate(Some(line), Some(column))
+            .context("invalid cursor")?;
         self.line = line;
         self.column = column;
         Ok(())
     }
 
     pub fn set_line(&mut self, line: usize) -> Result<()> {
-        if let Err(e) = self.validate(Some(line), None) {
-            anyhow::bail!("invalid cursor: {}", e)
-        }
+        self.validate(Some(line), None).context("invalid cursor")?;
         self.line = line;
         Ok(())
     }
 
     pub fn set_column(&mut self, column: usize) -> Result<()> {
-        if let Err(e) = self.validate(None, Some(column)) {
-            anyhow::bail!("invalid cursor: {}", e)
-        }
+        self.validate(None, Some(column))
+            .context("invalid cursor")?;
         self.column = column;
         Ok(())
     }
