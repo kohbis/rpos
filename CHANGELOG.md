@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/kohbis/rpos/compare/v0.3.1...v0.3.2) (2026-01-25)
+
+
+### Documentation
+
+* ✏️ Expand README with detailed documentation including overview, installation, usage examples, and API reference ([549782f](https://github.com/kohbis/rpos/commit/549782f1c1c0f92756e627a8dd1e8f2bbe6886b6))
+
 ## [0.3.1](https://github.com/kohbis/rpos/compare/v0.3.0...v0.3.1) (2026-01-24)
 
 
