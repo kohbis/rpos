@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0](https://github.com/kohbis/rpos/compare/v0.3.3...v0.4.0) (2026-02-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* 🧨 Wrap mode
+
+### Features
+
+* 🎸 Add jagged table support with per-row column clamping and builder pattern for wrap mode configuration ([cdf16d2](https://github.com/kohbis/rpos/commit/cdf16d2efd80a127bfe3adcf9928313394303e8e))
+
+
+### Continuous Integration
+
+* 🎡 Update release-please-action to use googleapis organization instead of google-github-actions ([f3c33ad](https://github.com/kohbis/rpos/commit/f3c33add9022f2f4148b55c0e8bb326b0f77fcd5))
+
 ## [0.3.3](https://github.com/kohbis/rpos/compare/v0.3.2...v0.3.3) (2026-02-07)
 
 
