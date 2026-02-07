@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use rpos::table::Table;
+    use rpos::WrapMode;
 
     #[test]
     fn initialize_cursor() {
@@ -82,61 +83,57 @@ mod tests {
             .contains("invalid cursor"));
     }
 
-    // Boundary movement tests - verify cursor stays in bounds
+    // Boundary movement tests - verify cursor wraps around
     #[test]
-    fn move_up_at_top_boundary_stays_at_top() {
+    fn move_up_at_top_boundary_wraps_to_bottom() {
         let mut cursor = Table::new(3, 4).unwrap().cursor;
         assert_eq!(cursor.current(), (0, 0));
 
         cursor.up();
-        assert_eq!(cursor.current(), (0, 0));
+        assert_eq!(cursor.current(), (2, 0));
 
-        // Multiple attempts should still stay at top
+        // Multiple attempts wrap around
         cursor.up();
-        cursor.up();
-        assert_eq!(cursor.current(), (0, 0));
+        assert_eq!(cursor.current(), (1, 0));
     }
 
     #[test]
-    fn move_down_at_bottom_boundary_stays_at_bottom() {
+    fn move_down_at_bottom_boundary_wraps_to_top() {
         let mut cursor = Table::new(3, 4).unwrap().cursor;
         cursor.set(2, 0).unwrap(); // Move to bottom row
 
         cursor.down();
-        assert_eq!(cursor.current(), (2, 0));
+        assert_eq!(cursor.current(), (0, 0));
 
-        // Multiple attempts should still stay at bottom
+        // Multiple attempts wrap around
         cursor.down();
-        cursor.down();
-        assert_eq!(cursor.current(), (2, 0));
+        assert_eq!(cursor.current(), (1, 0));
     }
 
     #[test]
-    fn move_left_at_left_boundary_stays_at_left() {
+    fn move_left_at_left_boundary_wraps_to_right() {
         let mut cursor = Table::new(3, 4).unwrap().cursor;
         assert_eq!(cursor.current(), (0, 0));
 
         cursor.left();
-        assert_eq!(cursor.current(), (0, 0));
+        assert_eq!(cursor.current(), (0, 3));
 
-        // Multiple attempts should still stay at left
+        // Multiple attempts wrap around
         cursor.left();
-        cursor.left();
-        assert_eq!(cursor.current(), (0, 0));
+        assert_eq!(cursor.current(), (0, 2));
     }
 
     #[test]
-    fn move_right_at_right_boundary_stays_at_right() {
+    fn move_right_at_right_boundary_wraps_to_left() {
         let mut cursor = Table::new(3, 4).unwrap().cursor;
         cursor.set(0, 3).unwrap(); // Move to rightmost column
 
         cursor.right();
-        assert_eq!(cursor.current(), (0, 3));
+        assert_eq!(cursor.current(), (0, 0));
 
-        // Multiple attempts should still stay at right
+        // Multiple attempts wrap around
         cursor.right();
-        cursor.right();
-        assert_eq!(cursor.current(), (0, 3));
+        assert_eq!(cursor.current(), (0, 1));
     }
 
     // Corner position tests
@@ -217,10 +214,10 @@ mod tests {
     }
 
     #[test]
-    fn cursor_in_single_row_table_only_moves_horizontally() {
+    fn cursor_in_single_row_table_wraps_vertically() {
         let mut cursor = Table::new(1, 3).unwrap().cursor;
 
-        // Vertical movement should be blocked
+        // Vertical movement wraps to the same row
         cursor.up();
         assert_eq!(cursor.current(), (0, 0));
         cursor.down();
@@ -236,10 +233,10 @@ mod tests {
     }
 
     #[test]
-    fn cursor_in_single_column_table_only_moves_vertically() {
+    fn cursor_in_single_column_table_wraps_horizontally() {
         let mut cursor = Table::new(3, 1).unwrap().cursor;
 
-        // Horizontal movement should be blocked
+        // Horizontal movement wraps to the same column
         cursor.left();
         assert_eq!(cursor.current(), (0, 0));
         cursor.right();
@@ -252,6 +249,24 @@ mod tests {
         assert_eq!(cursor.current(), (2, 0));
         cursor.up();
         assert_eq!(cursor.current(), (1, 0));
+    }
+
+    #[test]
+    fn clamp_mode_does_not_wrap_at_boundaries() {
+        let mut cursor = Table::new(3, 4).unwrap().cursor;
+        cursor.set_wrap_mode(WrapMode::Clamp);
+
+        // Top-left stays when moving up/left
+        cursor.set(0, 0).unwrap();
+        cursor.up();
+        cursor.left();
+        assert_eq!(cursor.current(), (0, 0));
+
+        // Bottom-right stays when moving down/right
+        cursor.set(2, 3).unwrap();
+        cursor.down();
+        cursor.right();
+        assert_eq!(cursor.current(), (2, 3));
     }
 
     // Out-of-bounds edge cases

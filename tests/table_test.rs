@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use rpos::table::Table;
+    use rpos::WrapMode;
 
     #[test]
     fn initialize_table() {
@@ -56,5 +57,13 @@ mod tests {
         assert_eq!(table.height, 5);
         assert_eq!(table.width, 1);
         assert_eq!(table.cursor.current(), (0, 0));
+    }
+
+    #[test]
+    fn initialize_table_with_wrap_mode() {
+        let mut table = Table::new_with_wrap_mode(3, 4, WrapMode::Wrap).unwrap();
+        table.cursor.set(0, 0).unwrap();
+        table.cursor.up();
+        assert_eq!(table.cursor.current(), (2, 0));
     }
 }
