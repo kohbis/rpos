@@ -285,4 +285,107 @@ mod tests {
         // column_size is 4, so column=4 should fail (0-indexed: valid is 0, 1, 2, 3)
         assert!(cursor.set_column(4).is_err());
     }
+
+    // Jagged array tests
+    #[test]
+    fn jagged_down_clamps_column_on_shorter_row() {
+        // Row 0: 4 cols, Row 1: 2 cols, Row 2: 3 cols
+        let mut cursor = Table::new_jagged(vec![4, 2, 3]).unwrap().cursor;
+        cursor.set(0, 3).unwrap(); // column 3 on row 0
+
+        cursor.down(); // move to row 1 (only 2 cols: 0,1)
+        assert_eq!(cursor.current(), (1, 1)); // clamped to max valid column
+    }
+
+    #[test]
+    fn jagged_up_clamps_column_on_shorter_row() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 3]).unwrap().cursor;
+        cursor.set(2, 2).unwrap(); // column 2 on row 2
+
+        cursor.up(); // move to row 1 (only 2 cols: 0,1)
+        assert_eq!(cursor.current(), (1, 1)); // clamped
+    }
+
+    #[test]
+    fn jagged_wrap_around_bottom_to_top_clamps_column() {
+        let mut cursor = Table::new_jagged(vec![2, 4, 3]).unwrap().cursor;
+        cursor.set(2, 2).unwrap(); // column 2 on row 2
+
+        cursor.down(); // wraps to row 0 (only 2 cols: 0,1)
+        assert_eq!(cursor.current(), (0, 1)); // clamped
+    }
+
+    #[test]
+    fn jagged_wrap_around_top_to_bottom_clamps_column() {
+        let mut cursor = Table::new_jagged(vec![4, 3, 2]).unwrap().cursor;
+        cursor.set(0, 3).unwrap(); // column 3 on row 0
+
+        cursor.up(); // wraps to row 2 (only 2 cols: 0,1)
+        assert_eq!(cursor.current(), (2, 1)); // clamped
+    }
+
+    #[test]
+    fn jagged_set_line_clamps_column() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 3]).unwrap().cursor;
+        cursor.set(0, 3).unwrap(); // column 3 on row 0
+
+        cursor.set_line(1).unwrap(); // row 1 has only 2 cols
+        assert_eq!(cursor.current(), (1, 1)); // clamped
+    }
+
+    #[test]
+    fn jagged_set_validates_against_target_row_column_size() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 3]).unwrap().cursor;
+
+        // Valid: column 3 on row 0 (4 cols)
+        assert!(cursor.set(0, 3).is_ok());
+
+        // Invalid: column 3 on row 1 (only 2 cols)
+        assert!(cursor.set(1, 3).is_err());
+
+        // Valid: column 2 on row 2 (3 cols)
+        assert!(cursor.set(2, 2).is_ok());
+
+        // Invalid: column 3 on row 2 (only 3 cols)
+        assert!(cursor.set(2, 3).is_err());
+    }
+
+    #[test]
+    fn jagged_failed_set_does_not_change_cursor() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 3]).unwrap().cursor;
+        cursor.set(0, 3).unwrap();
+
+        let _ = cursor.set(1, 3); // Invalid for row 1, should fail
+        assert_eq!(cursor.current(), (0, 3)); // Should remain unchanged
+    }
+
+    #[test]
+    fn jagged_right_uses_current_row_width() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 3]).unwrap().cursor;
+        cursor.set(1, 0).unwrap(); // row 1 has 2 cols
+
+        cursor.right();
+        assert_eq!(cursor.current(), (1, 1));
+
+        cursor.right(); // wraps within row 1
+        assert_eq!(cursor.current(), (1, 0));
+    }
+
+    #[test]
+    fn jagged_left_uses_current_row_width() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 3]).unwrap().cursor;
+        cursor.set(1, 0).unwrap(); // row 1 has 2 cols
+
+        cursor.left(); // wraps within row 1
+        assert_eq!(cursor.current(), (1, 1));
+    }
+
+    #[test]
+    fn jagged_set_column_validates_against_current_row() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 3]).unwrap().cursor;
+        cursor.set(1, 0).unwrap(); // row 1 has 2 cols
+
+        assert!(cursor.set_column(1).is_ok());
+        assert!(cursor.set_column(2).is_err()); // out of bounds for row 1
+    }
 }

@@ -7,7 +7,7 @@ A cursor manager on table for Rust.
 
 ## Overview
 
-`rpos` provides a simple and intuitive way to manage cursor position on a 2D table. The cursor can navigate within the table using directional movements (up, down, left, right) or by setting specific positions. By default, movement wraps at edges, and clamp mode can be enabled when needed.
+`rpos` provides a simple and intuitive way to manage cursor position on a 2D table. The cursor can navigate within the table using directional movements (up, down, left, right) or by setting specific positions. By default, movement wraps at edges, and clamp mode can be enabled when needed. Tables support both uniform (rectangular) and jagged (non-uniform) rows where each row can have a different number of columns.
 
 ## Installation
 
@@ -120,6 +120,35 @@ fn main() {
 }
 ```
 
+### Jagged (Non-Uniform) Tables
+
+Tables can have rows with different column counts. When moving to a row with fewer columns, the column is automatically clamped to the last valid position:
+
+```rust
+use rpos::table::Table;
+
+fn main() {
+    // Row 0: 4 columns, Row 1: 2 columns, Row 2: 3 columns
+    let mut table = Table::new_jagged(vec![4, 2, 3]).unwrap();
+
+    table.cursor.set(0, 3).unwrap(); // column 3 on row 0
+    assert_eq!(table.cursor.current(), (0, 3));
+
+    table.cursor.down(); // move to row 1 (only 2 columns)
+    assert_eq!(table.cursor.current(), (1, 1)); // column clamped to 1
+
+    table.cursor.down(); // move to row 2 (3 columns)
+    assert_eq!(table.cursor.current(), (2, 1)); // column stays at 1
+
+    // Left/right movement uses the current row's width
+    table.cursor.set(1, 0).unwrap();
+    table.cursor.right();
+    assert_eq!(table.cursor.current(), (1, 1)); // row 1 max
+    table.cursor.right(); // wraps within row 1
+    assert_eq!(table.cursor.current(), (1, 0));
+}
+```
+
 
 ## API Reference
 
@@ -128,7 +157,8 @@ fn main() {
 | Method | Description |
 |--------|-------------|
 | `Table::new(height, width)` | Creates a new table with specified dimensions |
-| `Table::new_with_wrap_mode(height, width, wrap_mode)` | Creates a new table with a specified wrap mode |
+| `Table::new_jagged(widths)` | Creates a jagged table with per-row column widths |
+| `table.wrap_mode(mode)` | Sets wrap mode (builder pattern, chainable after `new` / `new_jagged`) |
 
 ### WrapMode
 
@@ -143,7 +173,7 @@ fn main() {
 |--------|-------------|
 | `current()` | Returns current position as `(line, column)` |
 | `set(line, column)` | Sets cursor to specific position |
-| `set_line(line)` | Sets cursor line (row) |
+| `set_line(line)` | Sets cursor line (row), clamping column if needed |
 | `set_column(column)` | Sets cursor column |
 | `wrap_mode()` | Returns current wrap mode |
 | `set_wrap_mode(wrap_mode)` | Sets wrap mode for movement |
