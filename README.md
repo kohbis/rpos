@@ -7,7 +7,7 @@ A cursor manager on table for Rust.
 
 ## Overview
 
-`rpos` provides a simple and intuitive way to manage cursor position on a 2D table with bounds checking. The cursor can navigate within the table using directional movements (up, down, left, right) or by setting specific positions.
+`rpos` provides a simple and intuitive way to manage cursor position on a 2D table. The cursor can navigate within the table using directional movements (up, down, left, right) or by setting specific positions. By default, movement wraps at edges, and clamp mode can be enabled when needed.
 
 ## Installation
 
@@ -82,9 +82,9 @@ fn main() {
 }
 ```
 
-### Boundary Safety
+### Wraparound Movement
 
-The cursor automatically stays within table bounds:
+Wrap mode is the default and wraps around table edges when moving:
 
 ```rust
 use rpos::table::Table;
@@ -92,16 +92,34 @@ use rpos::table::Table;
 fn main() {
     let mut table = Table::new(3, 4).unwrap();
 
-    // Cursor won't go beyond boundaries
-    table.cursor.up(); // Already at top, stays at (0, 0)
-    table.cursor.left(); // Already at left edge, stays at (0, 0)
-    assert_eq!(table.cursor.current(), (0, 0));
+    // Cursor wraps around edges
+    table.cursor.up(); // From top row, wraps to bottom row
+    table.cursor.left(); // From left edge, wraps to right edge
+    assert_eq!(table.cursor.current(), (2, 3));
 
     // Setting out-of-bounds position returns an error
     let result = table.cursor.set(10, 10);
     assert!(result.is_err());
 }
 ```
+
+### Clamp Mode
+
+Clamp mode keeps the cursor at the table edges:
+
+```rust
+use rpos::{table::Table, WrapMode};
+
+fn main() {
+    let mut table = Table::new(3, 4).unwrap();
+
+    table.cursor.set(0, 0).unwrap();
+    table.cursor.up();
+    table.cursor.left();
+    assert_eq!(table.cursor.current(), (0, 0));
+}
+```
+
 
 ## API Reference
 
@@ -110,6 +128,14 @@ fn main() {
 | Method | Description |
 |--------|-------------|
 | `Table::new(height, width)` | Creates a new table with specified dimensions |
+| `Table::new_with_wrap_mode(height, width, wrap_mode)` | Creates a new table with a specified wrap mode |
+
+### WrapMode
+
+| Variant | Description |
+|---------|-------------|
+| `WrapMode::Wrap` | Wraps cursor movement at table edges |
+| `WrapMode::Clamp` | Clamps cursor movement at table edges |
 
 ### Cursor
 
@@ -119,6 +145,8 @@ fn main() {
 | `set(line, column)` | Sets cursor to specific position |
 | `set_line(line)` | Sets cursor line (row) |
 | `set_column(column)` | Sets cursor column |
+| `wrap_mode()` | Returns current wrap mode |
+| `set_wrap_mode(wrap_mode)` | Sets wrap mode for movement |
 | `up()` | Moves cursor up one position |
 | `down()` | Moves cursor down one position |
 | `left()` | Moves cursor left one position |
