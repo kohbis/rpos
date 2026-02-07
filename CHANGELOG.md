@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.3](https://github.com/kohbis/rpos/compare/v0.3.2...v0.3.3) (2026-02-07)
+
+
+### Features
+
+* 🎸 Add wrap mode feature with configurable cursor boundary behavior and update documentation ([1a0748a](https://github.com/kohbis/rpos/commit/1a0748a00cea265bd9ee212d32a598e2ba2b86e9))
+
+
+### Miscellaneous Chores
+
+* 🤖 Add project guidelines documentation for agent configuration ([e85f580](https://github.com/kohbis/rpos/commit/e85f5807a69c46dd357e7a32318d7ac50e979776))
+* **deps:** bump anyhow from 1.0.100 to 1.0.101 ([0e632b9](https://github.com/kohbis/rpos/commit/0e632b9125e50dc3e362a1f0abc140deaef80fa5))
+
+
+### Tests
+
+* 🧪 Expand cursor and table tests to cover edge cases and boundary conditions ([21f6767](https://github.com/kohbis/rpos/commit/21f67677714a07662d770588115be49fcfc2b7c9))
+
 ## [0.3.2](https://github.com/kohbis/rpos/compare/v0.3.1...v0.3.2) (2026-01-25)
 
 
