@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.1](https://github.com/kohbis/rpos/compare/v0.4.0...v0.4.1) (2026-07-20)
+
+
+### Miscellaneous Chores
+
+* **deps:** bump anyhow from 1.0.101 to 1.0.102 ([37c8484](https://github.com/kohbis/rpos/commit/37c84840ebc8921f47d9ad8974b9c86efb73ddfd))
+* **deps:** bump anyhow from 1.0.101 to 1.0.102 ([6e285ae](https://github.com/kohbis/rpos/commit/6e285ae42e05ded38481509758f7161a8e6fe6e3))
+* **deps:** bump anyhow from 1.0.102 to 1.0.103 ([755a85a](https://github.com/kohbis/rpos/commit/755a85a9afffba3917d223c3d3a395d287e0f81a))
+* **deps:** bump anyhow from 1.0.103 to 1.0.104 ([91b4b98](https://github.com/kohbis/rpos/commit/91b4b98c7cb9c61e5c88f64e98fb43ef00329b2f))
+* **deps:** bump googleapis/release-please-action from 4 to 5 ([0aa537b](https://github.com/kohbis/rpos/commit/0aa537b1e98af0fee947e52a6d6de85c3c05c9bc))
+
 ## [0.4.0](https://github.com/kohbis/rpos/compare/v0.3.3...v0.4.0) (2026-02-07)
 
 
