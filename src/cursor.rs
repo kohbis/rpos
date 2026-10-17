@@ -250,6 +250,48 @@ impl Cursor {
         self.remember_column();
     }
 
+    /// Move down (`delta > 0`) or up (`delta < 0`) by up to `delta` steps.
+    ///
+    /// Each step uses the current vertical policy. Movement stops at the first
+    /// or last reachable row, including when [`WrapMode`] is [`WrapMode::Wrap`].
+    pub fn shift_line(&mut self, delta: isize) {
+        if delta > 0 {
+            self.repeat_toward_edge(delta.unsigned_abs(), Self::down);
+        } else {
+            self.repeat_toward_edge(delta.unsigned_abs(), Self::up);
+        }
+    }
+
+    /// Move right (`delta > 0`) or left (`delta < 0`) by up to `delta` steps.
+    ///
+    /// Each step uses the current horizontal policy. Movement stops at the edge
+    /// of the row, or of the table when crossing rows, including when
+    /// [`WrapMode`] is [`WrapMode::Wrap`].
+    pub fn shift_column(&mut self, delta: isize) {
+        if delta > 0 {
+            self.repeat_toward_edge(delta.unsigned_abs(), Self::right);
+        } else {
+            self.repeat_toward_edge(delta.unsigned_abs(), Self::left);
+        }
+    }
+
+    /// Repeat `step` up to `steps` times with wrapping disabled, stopping when a step does not move.
+    fn repeat_toward_edge(&mut self, steps: usize, step: fn(&mut Self)) {
+        if steps == 0 {
+            return;
+        }
+        let wrap_mode = self.wrap_mode;
+        self.wrap_mode = WrapMode::Clamp;
+        for _ in 0..steps {
+            let before = self.current();
+            step(self);
+            if self.current() == before {
+                break;
+            }
+        }
+        self.wrap_mode = wrap_mode;
+    }
+
     fn left_within_row(&mut self) {
         let col_size = self.current_column_size();
         match self.wrap_mode {
