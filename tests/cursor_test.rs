@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use rpos::table::Table;
-    use rpos::{VerticalPolicy, WrapMode};
+    use rpos::{HorizontalPolicy, VerticalPolicy, WrapMode};
 
     #[test]
     fn initialize_cursor() {
@@ -528,5 +528,201 @@ mod tests {
         cursor.set_vertical_policy(VerticalPolicy::SkipMissing);
         cursor.down();
         assert_eq!(cursor.current(), (2, 3));
+    }
+
+    // HorizontalPolicy::AcrossRows
+    #[test]
+    fn across_rows_right_moves_to_next_row() {
+        let mut cursor = Table::new(3, 2)
+            .unwrap()
+            .horizontal_policy(HorizontalPolicy::AcrossRows)
+            .cursor;
+        cursor.set(0, 1).unwrap();
+
+        cursor.right();
+        assert_eq!(cursor.current(), (1, 0));
+    }
+
+    #[test]
+    fn across_rows_left_moves_to_previous_row_end() {
+        let mut cursor = Table::new(3, 2)
+            .unwrap()
+            .horizontal_policy(HorizontalPolicy::AcrossRows)
+            .cursor;
+        cursor.set(1, 0).unwrap();
+
+        cursor.left();
+        assert_eq!(cursor.current(), (0, 1));
+    }
+
+    #[test]
+    fn across_rows_wrap_from_last_cell_to_first() {
+        let mut cursor = Table::new(2, 2)
+            .unwrap()
+            .wrap_mode(WrapMode::Wrap)
+            .horizontal_policy(HorizontalPolicy::AcrossRows)
+            .cursor;
+        cursor.set(1, 1).unwrap();
+
+        cursor.right();
+        assert_eq!(cursor.current(), (0, 0));
+    }
+
+    #[test]
+    fn across_rows_wrap_from_first_cell_to_last() {
+        let mut cursor = Table::new(2, 2)
+            .unwrap()
+            .wrap_mode(WrapMode::Wrap)
+            .horizontal_policy(HorizontalPolicy::AcrossRows)
+            .cursor;
+
+        cursor.left();
+        assert_eq!(cursor.current(), (1, 1));
+    }
+
+    #[test]
+    fn across_rows_clamp_stays_at_last_cell() {
+        let mut cursor = Table::new(2, 2)
+            .unwrap()
+            .wrap_mode(WrapMode::Clamp)
+            .horizontal_policy(HorizontalPolicy::AcrossRows)
+            .cursor;
+        cursor.set(1, 1).unwrap();
+
+        cursor.right();
+        assert_eq!(cursor.current(), (1, 1));
+    }
+
+    #[test]
+    fn across_rows_clamp_stays_at_first_cell() {
+        let mut cursor = Table::new(2, 2)
+            .unwrap()
+            .wrap_mode(WrapMode::Clamp)
+            .horizontal_policy(HorizontalPolicy::AcrossRows)
+            .cursor;
+
+        cursor.left();
+        assert_eq!(cursor.current(), (0, 0));
+    }
+
+    #[test]
+    fn across_rows_works_on_jagged_tables() {
+        let mut cursor = Table::new_jagged(vec![3, 1, 2])
+            .unwrap()
+            .horizontal_policy(HorizontalPolicy::AcrossRows)
+            .cursor;
+        cursor.set(0, 2).unwrap();
+
+        cursor.right();
+        assert_eq!(cursor.current(), (1, 0));
+
+        cursor.right();
+        assert_eq!(cursor.current(), (2, 0));
+
+        cursor.left();
+        assert_eq!(cursor.current(), (1, 0));
+    }
+
+    #[test]
+    fn default_horizontal_policy_is_within_row() {
+        let cursor = Table::new(2, 2).unwrap().cursor;
+        assert_eq!(cursor.horizontal_policy(), HorizontalPolicy::WithinRow);
+    }
+
+    // home / end / row_start / row_end
+    #[test]
+    fn home_moves_to_origin() {
+        let mut cursor = Table::new(3, 4).unwrap().cursor;
+        cursor.set(2, 3).unwrap();
+        cursor.home();
+        assert_eq!(cursor.current(), (0, 0));
+    }
+
+    #[test]
+    fn end_moves_to_last_cell() {
+        let mut cursor = Table::new_jagged(vec![3, 1, 2]).unwrap().cursor;
+        cursor.home();
+        cursor.end();
+        assert_eq!(cursor.current(), (2, 1));
+    }
+
+    #[test]
+    fn row_start_and_row_end() {
+        let mut cursor = Table::new(3, 4).unwrap().cursor;
+        cursor.set(1, 2).unwrap();
+
+        cursor.row_start();
+        assert_eq!(cursor.current(), (1, 0));
+
+        cursor.row_end();
+        assert_eq!(cursor.current(), (1, 3));
+    }
+
+    // linear index
+    #[test]
+    fn index_is_row_major() {
+        let mut cursor = Table::new(3, 4).unwrap().cursor;
+        cursor.set(1, 2).unwrap();
+        assert_eq!(cursor.index(), 6); // 4 + 2
+        assert_eq!(cursor.cell_count(), 12);
+    }
+
+    #[test]
+    fn index_on_jagged_table() {
+        let mut cursor = Table::new_jagged(vec![3, 1, 2]).unwrap().cursor;
+        cursor.set(2, 1).unwrap();
+        assert_eq!(cursor.index(), 3 + 1 + 1);
+        assert_eq!(cursor.cell_count(), 6);
+    }
+
+    #[test]
+    fn set_index_round_trips() {
+        let mut cursor = Table::new_jagged(vec![3, 1, 2]).unwrap().cursor;
+        for i in 0..cursor.cell_count() {
+            cursor.set_index(i).unwrap();
+            assert_eq!(cursor.index(), i);
+        }
+    }
+
+    #[test]
+    fn set_index_out_of_range_fails() {
+        let mut cursor = Table::new(2, 2).unwrap().cursor;
+        assert!(cursor.set_index(4).is_err());
+        assert_eq!(cursor.current(), (0, 0));
+    }
+
+    // set_column_sizes / accessors
+    #[test]
+    fn set_column_sizes_clamps_cursor() {
+        let mut cursor = Table::new(3, 4).unwrap().cursor;
+        cursor.set(2, 3).unwrap();
+
+        cursor.set_column_sizes(vec![2, 2]).unwrap();
+        assert_eq!(cursor.line_count(), 2);
+        assert_eq!(cursor.current(), (1, 1));
+        assert_eq!(cursor.column_sizes(), &[2, 2]);
+    }
+
+    #[test]
+    fn set_column_sizes_rejects_invalid() {
+        let mut cursor = Table::new(2, 2).unwrap().cursor;
+        assert!(cursor.set_column_sizes(vec![]).is_err());
+        assert!(cursor.set_column_sizes(vec![2, 0]).is_err());
+    }
+
+    #[test]
+    fn line_and_column_accessors() {
+        let mut cursor = Table::new(3, 4).unwrap().cursor;
+        cursor.set(2, 3).unwrap();
+        assert_eq!(cursor.line(), 2);
+        assert_eq!(cursor.column(), 3);
+    }
+
+    #[test]
+    fn cursor_is_cloneable() {
+        let cursor = Table::new(2, 3).unwrap().cursor;
+        let cloned = cursor.clone();
+        assert_eq!(cloned.current(), (0, 0));
+        assert_eq!(cloned.column_sizes(), &[3, 3]);
     }
 }

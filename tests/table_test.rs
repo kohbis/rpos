@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use rpos::table::Table;
-    use rpos::{VerticalPolicy, WrapMode};
+    use rpos::{HorizontalPolicy, VerticalPolicy, WrapMode};
 
     #[test]
     fn initialize_table() {
@@ -72,8 +72,15 @@ mod tests {
     fn initialize_jagged_table() {
         let table = Table::new_jagged(vec![4, 2, 3]).unwrap();
         assert_eq!(table.height, 3);
-        assert_eq!(table.width, 4); // width is first row's width
+        assert_eq!(table.width, 4); // width is max row width
         assert_eq!(table.cursor.current(), (0, 0));
+    }
+
+    #[test]
+    fn jagged_table_width_is_max_row_width() {
+        let table = Table::new_jagged(vec![2, 5, 3]).unwrap();
+        assert_eq!(table.height, 3);
+        assert_eq!(table.width, 5);
     }
 
     #[test]
@@ -198,5 +205,44 @@ mod tests {
 
         table.cursor.down();
         assert_eq!(table.cursor.current(), (2, 3));
+    }
+
+    #[test]
+    fn builder_chains_horizontal_policy() {
+        let mut table = Table::new(2, 2)
+            .unwrap()
+            .horizontal_policy(HorizontalPolicy::AcrossRows);
+        table.cursor.set(0, 1).unwrap();
+        table.cursor.right();
+        assert_eq!(table.cursor.current(), (1, 0));
+    }
+
+    #[test]
+    fn set_size_updates_dimensions_and_clamps_cursor() {
+        let mut table = Table::new(3, 4).unwrap();
+        table.cursor.set(2, 3).unwrap();
+
+        table.set_size(2, 2).unwrap();
+        assert_eq!(table.height, 2);
+        assert_eq!(table.width, 2);
+        assert_eq!(table.cursor.current(), (1, 1));
+    }
+
+    #[test]
+    fn set_widths_updates_jagged_dimensions() {
+        let mut table = Table::new(2, 2).unwrap();
+        table.cursor.set(1, 1).unwrap();
+
+        table.set_widths(vec![3, 1, 2]).unwrap();
+        assert_eq!(table.height, 3);
+        assert_eq!(table.width, 3);
+        assert_eq!(table.cursor.current(), (1, 0)); // clamped to row 1's only column
+    }
+
+    #[test]
+    fn set_size_rejects_zero() {
+        let mut table = Table::new(2, 2).unwrap();
+        assert!(table.set_size(0, 2).is_err());
+        assert!(table.set_widths(vec![1, 0]).is_err());
     }
 }
