@@ -1,4 +1,4 @@
-pub(crate) mod cursor;
+pub mod cursor;
 pub mod table;
 
-pub use crate::cursor::{HorizontalPolicy, VerticalPolicy, WrapMode};
+pub use crate::cursor::{Cursor, HorizontalPolicy, VerticalPolicy, WrapMode};

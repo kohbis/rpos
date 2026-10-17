@@ -9,8 +9,7 @@ pub enum WrapMode {
 /// How vertical movement handles jagged rows that lack the current column.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum VerticalPolicy {
-    /// Move to the adjacent row and clamp the column to that row's width.
-    /// This is the default and preserves pre-0.5 behavior.
+    /// Move to the adjacent row and clamp the column to that row's width (default).
     ClampColumn,
     /// Keep the current column and skip rows that do not have it.
     /// Useful when column identity should be preserved across jagged rows.
@@ -37,26 +36,32 @@ pub struct Cursor {
 }
 
 impl Cursor {
-    pub fn new((line_size, column_size): (usize, usize)) -> Self {
-        Self {
+    pub fn new((line_size, column_size): (usize, usize)) -> Result<Self> {
+        if line_size == 0 || column_size == 0 {
+            anyhow::bail!("invalid column sizes");
+        }
+        Ok(Self {
             line: 0,
             column: 0,
             column_sizes: vec![column_size; line_size],
             wrap_mode: WrapMode::Wrap,
             vertical_policy: VerticalPolicy::ClampColumn,
             horizontal_policy: HorizontalPolicy::WithinRow,
-        }
+        })
     }
 
-    pub fn new_jagged(column_sizes: Vec<usize>) -> Self {
-        Self {
+    pub fn new_jagged(column_sizes: Vec<usize>) -> Result<Self> {
+        if column_sizes.is_empty() || column_sizes.contains(&0) {
+            anyhow::bail!("invalid column sizes");
+        }
+        Ok(Self {
             line: 0,
             column: 0,
             column_sizes,
             wrap_mode: WrapMode::Wrap,
             vertical_policy: VerticalPolicy::ClampColumn,
             horizontal_policy: HorizontalPolicy::WithinRow,
-        }
+        })
     }
 
     pub fn current(&self) -> (usize, usize) {
@@ -172,18 +177,12 @@ impl Cursor {
 
     /// Move to the first cell `(0, 0)`.
     pub fn home(&mut self) {
-        if self.line_count() == 0 {
-            return;
-        }
         self.line = 0;
         self.column = 0;
     }
 
     /// Move to the last cell of the last row.
     pub fn end(&mut self) {
-        if self.line_count() == 0 {
-            return;
-        }
         self.line = self.line_count() - 1;
         self.row_end();
     }
@@ -196,9 +195,7 @@ impl Cursor {
     /// Move to the last column of the current row.
     pub fn row_end(&mut self) {
         let col_size = self.current_column_size();
-        if col_size > 0 {
-            self.column = col_size - 1;
-        }
+        self.column = col_size - 1;
     }
 
     pub fn up(&mut self) {
@@ -231,9 +228,6 @@ impl Cursor {
 
     fn left_within_row(&mut self) {
         let col_size = self.current_column_size();
-        if col_size == 0 {
-            return;
-        }
         match self.wrap_mode {
             WrapMode::Wrap => {
                 if self.column == 0 {
@@ -252,9 +246,6 @@ impl Cursor {
 
     fn right_within_row(&mut self) {
         let col_size = self.current_column_size();
-        if col_size == 0 {
-            return;
-        }
         match self.wrap_mode {
             WrapMode::Wrap => {
                 if self.column + 1 == col_size {
@@ -272,9 +263,6 @@ impl Cursor {
     }
 
     fn left_across_rows(&mut self) {
-        if self.line_count() == 0 || self.current_column_size() == 0 {
-            return;
-        }
         if self.column > 0 {
             self.column -= 1;
             return;
@@ -298,9 +286,6 @@ impl Cursor {
     }
 
     fn right_across_rows(&mut self) {
-        if self.line_count() == 0 || self.current_column_size() == 0 {
-            return;
-        }
         let col_size = self.current_column_size();
         if self.column + 1 < col_size {
             self.column += 1;
@@ -325,9 +310,6 @@ impl Cursor {
     }
 
     fn up_clamp_column(&mut self) {
-        if self.line_count() == 0 {
-            return;
-        }
         match self.wrap_mode {
             WrapMode::Wrap => {
                 if self.line == 0 {
@@ -346,9 +328,6 @@ impl Cursor {
     }
 
     fn down_clamp_column(&mut self) {
-        if self.line_count() == 0 {
-            return;
-        }
         match self.wrap_mode {
             WrapMode::Wrap => {
                 if self.line + 1 == self.line_count() {
@@ -380,10 +359,6 @@ impl Cursor {
 
     fn find_line_skip_missing(&self, direction: Direction) -> Option<usize> {
         let n = self.line_count();
-        if n == 0 {
-            return None;
-        }
-
         match (self.wrap_mode, direction) {
             (WrapMode::Wrap, Direction::Up) => {
                 for i in 1..n {
@@ -431,7 +406,7 @@ impl Cursor {
 
     fn clamp_column(&mut self) {
         let col_size = self.current_column_size();
-        if col_size > 0 && self.column >= col_size {
+        if self.column >= col_size {
             self.column = col_size - 1;
         }
     }

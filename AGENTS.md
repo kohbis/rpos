@@ -29,7 +29,7 @@ cargo doc --open     # Generate and view documentation
 src/
   lib.rs       # Module exports
   cursor.rs    # Cursor struct with movement and validation
-  table.rs     # Table struct wrapping Cursor with dimensions
+  table.rs     # Table wrapper; height/width derived from Cursor
 tests/
   cursor_test.rs
   table_test.rs

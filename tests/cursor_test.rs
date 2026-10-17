@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use rpos::table::Table;
-    use rpos::{HorizontalPolicy, VerticalPolicy, WrapMode};
+    use rpos::{Cursor, HorizontalPolicy, VerticalPolicy, WrapMode};
 
     #[test]
     fn initialize_cursor() {
@@ -724,5 +724,43 @@ mod tests {
         let cloned = cursor.clone();
         assert_eq!(cloned.current(), (0, 0));
         assert_eq!(cloned.column_sizes(), &[3, 3]);
+    }
+
+    #[test]
+    fn cursor_new_rejects_zero_dimensions() {
+        assert!(Cursor::new((0, 3)).is_err());
+        assert!(Cursor::new((3, 0)).is_err());
+        assert!(Cursor::new_jagged(vec![]).is_err());
+        assert!(Cursor::new_jagged(vec![2, 0]).is_err());
+    }
+
+    #[test]
+    fn across_rows_and_skip_missing_are_independent() {
+        let mut cursor = Table::new_jagged(vec![3, 1, 3])
+            .unwrap()
+            .vertical_policy(VerticalPolicy::SkipMissing)
+            .horizontal_policy(HorizontalPolicy::AcrossRows)
+            .cursor;
+        cursor.set(0, 2).unwrap();
+
+        // AcrossRows: end of row → next row start (does not skip)
+        cursor.right();
+        assert_eq!(cursor.current(), (1, 0));
+
+        // SkipMissing: from col 2, down skips the short middle row
+        cursor.set(0, 2).unwrap();
+        cursor.down();
+        assert_eq!(cursor.current(), (2, 2));
+    }
+
+    #[test]
+    fn clamp_column_does_not_restore_preferred_column() {
+        // Documented behavior: ClampColumn forgets the wider column after a short row
+        let mut cursor = Table::new_jagged(vec![4, 2, 4]).unwrap().cursor;
+        cursor.set(0, 3).unwrap();
+        cursor.down();
+        assert_eq!(cursor.current(), (1, 1));
+        cursor.down();
+        assert_eq!(cursor.current(), (2, 1)); // not (2, 3)
     }
 }
