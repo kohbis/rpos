@@ -930,7 +930,7 @@ mod tests {
     #[test]
     fn shift_line_moves_by_delta_and_stops_at_the_edge() {
         let mut cursor = Table::new(5, 3).unwrap().cursor;
-        assert_eq!(cursor.wrap_mode(), WrapMode::Wrap);
+        assert_eq!(cursor.wrap_mode(), Some(WrapMode::Wrap));
 
         cursor.shift_line(2);
         assert_eq!(cursor.current(), (2, 0));
@@ -946,7 +946,7 @@ mod tests {
 
         cursor.shift_line(0);
         assert_eq!(cursor.current(), (0, 0));
-        assert_eq!(cursor.wrap_mode(), WrapMode::Wrap);
+        assert_eq!(cursor.wrap_mode(), Some(WrapMode::Wrap));
     }
 
     #[test]
@@ -964,7 +964,7 @@ mod tests {
 
         cursor.shift_column(-10);
         assert_eq!(cursor.current(), (0, 0));
-        assert_eq!(cursor.wrap_mode(), WrapMode::Wrap);
+        assert_eq!(cursor.wrap_mode(), Some(WrapMode::Wrap));
     }
 
     #[test]
@@ -1018,7 +1018,7 @@ mod tests {
         cursor.shift_line(5);
         assert_eq!(cursor.current(), (2, 3));
         assert_eq!(cursor.preferred_column(), 3);
-        assert_eq!(cursor.wrap_mode(), WrapMode::Wrap);
+        assert_eq!(cursor.wrap_mode(), Some(WrapMode::Wrap));
     }
 
     #[test]
@@ -1144,5 +1144,92 @@ mod tests {
 
         assert!(cursor.left());
         assert_eq!(cursor.current(), (1, 0));
+    }
+
+    #[test]
+    fn set_wrap_mode_sets_both_axes() {
+        let mut cursor = Table::new(2, 2).unwrap().cursor;
+        cursor.set_wrap_mode(WrapMode::Clamp);
+
+        assert_eq!(cursor.wrap_mode(), Some(WrapMode::Clamp));
+        assert_eq!(cursor.vertical_wrap_mode(), WrapMode::Clamp);
+        assert_eq!(cursor.horizontal_wrap_mode(), WrapMode::Clamp);
+    }
+
+    #[test]
+    fn vertical_clamp_does_not_stop_horizontal_wrap() {
+        let mut cursor = Table::new(3, 4)
+            .unwrap()
+            .vertical_wrap_mode(WrapMode::Clamp)
+            .horizontal_wrap_mode(WrapMode::Wrap)
+            .cursor;
+
+        assert_eq!(cursor.wrap_mode(), None);
+        assert!(!cursor.up());
+        assert_eq!(cursor.current(), (0, 0));
+        assert!(cursor.left());
+        assert_eq!(cursor.current(), (0, 3));
+    }
+
+    #[test]
+    fn horizontal_clamp_does_not_stop_vertical_wrap() {
+        let mut cursor = Table::new(3, 4)
+            .unwrap()
+            .vertical_wrap_mode(WrapMode::Wrap)
+            .horizontal_wrap_mode(WrapMode::Clamp)
+            .cursor;
+
+        assert!(cursor.up());
+        assert_eq!(cursor.current(), (2, 0));
+        assert!(!cursor.left());
+        assert_eq!(cursor.current(), (2, 0));
+    }
+
+    #[test]
+    fn across_rows_uses_the_horizontal_wrap_mode() {
+        let mut cursor = Table::new(2, 2)
+            .unwrap()
+            .vertical_wrap_mode(WrapMode::Clamp)
+            .horizontal_wrap_mode(WrapMode::Wrap)
+            .horizontal_policy(HorizontalPolicy::AcrossRows)
+            .cursor;
+        cursor.set(1, 1).unwrap();
+
+        assert!(cursor.right());
+        assert_eq!(cursor.current(), (0, 0));
+        assert!(!cursor.up());
+    }
+
+    #[test]
+    fn skip_missing_uses_the_vertical_wrap_mode() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .vertical_wrap_mode(WrapMode::Wrap)
+            .horizontal_wrap_mode(WrapMode::Clamp)
+            .vertical_policy(VerticalPolicy::SkipMissing)
+            .cursor;
+        cursor.set(2, 3).unwrap();
+
+        assert!(cursor.down());
+        assert_eq!(cursor.current(), (0, 3));
+
+        cursor.set_vertical_wrap_mode(WrapMode::Clamp);
+        cursor.set(0, 3).unwrap();
+        assert!(cursor.down());
+        assert_eq!(cursor.current(), (2, 3));
+        assert!(!cursor.down());
+    }
+
+    #[test]
+    fn shift_line_clamps_only_the_vertical_axis() {
+        let mut cursor = Table::new(3, 4).unwrap().cursor;
+
+        cursor.shift_line(10);
+        assert_eq!(cursor.current(), (2, 0));
+        assert_eq!(cursor.vertical_wrap_mode(), WrapMode::Wrap);
+        assert_eq!(cursor.horizontal_wrap_mode(), WrapMode::Wrap);
+
+        assert!(cursor.left());
+        assert_eq!(cursor.current(), (2, 3));
     }
 }

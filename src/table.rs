@@ -46,6 +46,16 @@ impl Table {
         self
     }
 
+    pub fn vertical_wrap_mode(mut self, wrap_mode: WrapMode) -> Self {
+        self.cursor.set_vertical_wrap_mode(wrap_mode);
+        self
+    }
+
+    pub fn horizontal_wrap_mode(mut self, wrap_mode: WrapMode) -> Self {
+        self.cursor.set_horizontal_wrap_mode(wrap_mode);
+        self
+    }
+
     pub fn vertical_policy(mut self, vertical_policy: VerticalPolicy) -> Self {
         self.cursor.set_vertical_policy(vertical_policy);
         self

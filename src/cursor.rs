@@ -1,8 +1,11 @@
 use anyhow::{Context, Result};
 
+/// How movement behaves at an edge. Vertical and horizontal edges are set separately.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum WrapMode {
+    /// Continue from the opposite edge.
     Wrap,
+    /// Stay on this edge.
     Clamp,
 }
 
@@ -34,7 +37,8 @@ pub struct Cursor {
     line: usize,
     column: usize,
     column_sizes: Vec<usize>,
-    wrap_mode: WrapMode,
+    vertical_wrap_mode: WrapMode,
+    horizontal_wrap_mode: WrapMode,
     vertical_policy: VerticalPolicy,
     horizontal_policy: HorizontalPolicy,
     /// Column to restore on `VerticalPolicy::StickyColumn` up/down.
@@ -51,7 +55,8 @@ impl Cursor {
             line: 0,
             column: 0,
             column_sizes: vec![column_size; line_size],
-            wrap_mode: WrapMode::Wrap,
+            vertical_wrap_mode: WrapMode::Wrap,
+            horizontal_wrap_mode: WrapMode::Wrap,
             vertical_policy: VerticalPolicy::ClampColumn,
             horizontal_policy: HorizontalPolicy::WithinRow,
             preferred_column: 0,
@@ -66,7 +71,8 @@ impl Cursor {
             line: 0,
             column: 0,
             column_sizes,
-            wrap_mode: WrapMode::Wrap,
+            vertical_wrap_mode: WrapMode::Wrap,
+            horizontal_wrap_mode: WrapMode::Wrap,
             vertical_policy: VerticalPolicy::ClampColumn,
             horizontal_policy: HorizontalPolicy::WithinRow,
             preferred_column: 0,
@@ -93,12 +99,35 @@ impl Cursor {
         &self.column_sizes
     }
 
-    pub fn wrap_mode(&self) -> WrapMode {
-        self.wrap_mode
+    /// `Some(mode)` when both axes use `mode`.
+    pub fn wrap_mode(&self) -> Option<WrapMode> {
+        if self.vertical_wrap_mode == self.horizontal_wrap_mode {
+            Some(self.vertical_wrap_mode)
+        } else {
+            None
+        }
     }
 
+    /// Set both the vertical and horizontal wrap modes.
     pub fn set_wrap_mode(&mut self, wrap_mode: WrapMode) {
-        self.wrap_mode = wrap_mode;
+        self.vertical_wrap_mode = wrap_mode;
+        self.horizontal_wrap_mode = wrap_mode;
+    }
+
+    pub fn vertical_wrap_mode(&self) -> WrapMode {
+        self.vertical_wrap_mode
+    }
+
+    pub fn set_vertical_wrap_mode(&mut self, wrap_mode: WrapMode) {
+        self.vertical_wrap_mode = wrap_mode;
+    }
+
+    pub fn horizontal_wrap_mode(&self) -> WrapMode {
+        self.horizontal_wrap_mode
+    }
+
+    pub fn set_horizontal_wrap_mode(&mut self, wrap_mode: WrapMode) {
+        self.horizontal_wrap_mode = wrap_mode;
     }
 
     pub fn vertical_policy(&self) -> VerticalPolicy {
@@ -268,9 +297,9 @@ impl Cursor {
     /// or last reachable row, including when [`WrapMode`] is [`WrapMode::Wrap`].
     pub fn shift_line(&mut self, delta: isize) {
         if delta > 0 {
-            self.repeat_toward_edge(delta.unsigned_abs(), Self::down);
+            self.repeat_toward_edge(delta.unsigned_abs(), Self::down, WrapAxis::Vertical);
         } else {
-            self.repeat_toward_edge(delta.unsigned_abs(), Self::up);
+            self.repeat_toward_edge(delta.unsigned_abs(), Self::up, WrapAxis::Vertical);
         }
     }
 
@@ -281,30 +310,39 @@ impl Cursor {
     /// [`WrapMode`] is [`WrapMode::Wrap`].
     pub fn shift_column(&mut self, delta: isize) {
         if delta > 0 {
-            self.repeat_toward_edge(delta.unsigned_abs(), Self::right);
+            self.repeat_toward_edge(delta.unsigned_abs(), Self::right, WrapAxis::Horizontal);
         } else {
-            self.repeat_toward_edge(delta.unsigned_abs(), Self::left);
+            self.repeat_toward_edge(delta.unsigned_abs(), Self::left, WrapAxis::Horizontal);
         }
     }
 
-    /// Repeat `step` up to `steps` times with wrapping disabled, stopping when a step does not move.
-    fn repeat_toward_edge(&mut self, steps: usize, step: fn(&mut Self) -> bool) {
+    /// Repeat `step` up to `steps` times with wrapping disabled on `axis`, stopping when a step does not move.
+    fn repeat_toward_edge(&mut self, steps: usize, step: fn(&mut Self) -> bool, axis: WrapAxis) {
         if steps == 0 {
             return;
         }
-        let wrap_mode = self.wrap_mode;
-        self.wrap_mode = WrapMode::Clamp;
+        let previous = match axis {
+            WrapAxis::Vertical => self.vertical_wrap_mode,
+            WrapAxis::Horizontal => self.horizontal_wrap_mode,
+        };
+        match axis {
+            WrapAxis::Vertical => self.vertical_wrap_mode = WrapMode::Clamp,
+            WrapAxis::Horizontal => self.horizontal_wrap_mode = WrapMode::Clamp,
+        }
         for _ in 0..steps {
             if !step(self) {
                 break;
             }
         }
-        self.wrap_mode = wrap_mode;
+        match axis {
+            WrapAxis::Vertical => self.vertical_wrap_mode = previous,
+            WrapAxis::Horizontal => self.horizontal_wrap_mode = previous,
+        }
     }
 
     fn left_within_row(&mut self) {
         let col_size = self.current_column_size();
-        match self.wrap_mode {
+        match self.horizontal_wrap_mode {
             WrapMode::Wrap => {
                 if self.column == 0 {
                     self.column = col_size - 1;
@@ -322,7 +360,7 @@ impl Cursor {
 
     fn right_within_row(&mut self) {
         let col_size = self.current_column_size();
-        match self.wrap_mode {
+        match self.horizontal_wrap_mode {
             WrapMode::Wrap => {
                 if self.column + 1 == col_size {
                     self.column = 0;
@@ -343,7 +381,7 @@ impl Cursor {
             self.column -= 1;
             return;
         }
-        match self.wrap_mode {
+        match self.horizontal_wrap_mode {
             WrapMode::Wrap => {
                 if self.line == 0 {
                     self.line = self.line_count() - 1;
@@ -367,7 +405,7 @@ impl Cursor {
             self.column += 1;
             return;
         }
-        match self.wrap_mode {
+        match self.horizontal_wrap_mode {
             WrapMode::Wrap => {
                 if self.line + 1 == self.line_count() {
                     self.line = 0;
@@ -405,10 +443,10 @@ impl Cursor {
         self.place_sticky_column();
     }
 
-    /// Move to the adjacent row, wrapping or stopping according to `wrap_mode`.
+    /// Move to the adjacent row, wrapping or stopping according to the vertical wrap mode.
     fn move_line(&mut self, direction: Direction) {
         let n = self.line_count();
-        match (self.wrap_mode, direction) {
+        match (self.vertical_wrap_mode, direction) {
             (WrapMode::Wrap, Direction::Up) => {
                 if self.line == 0 {
                     self.line = n - 1;
@@ -464,7 +502,7 @@ impl Cursor {
 
     fn find_line_skip_missing(&self, direction: Direction) -> Option<usize> {
         let n = self.line_count();
-        match (self.wrap_mode, direction) {
+        match (self.vertical_wrap_mode, direction) {
             (WrapMode::Wrap, Direction::Up) => {
                 for i in 1..n {
                     let target = (self.line + n - i) % n;
@@ -538,4 +576,9 @@ impl Cursor {
 enum Direction {
     Up,
     Down,
+}
+
+enum WrapAxis {
+    Vertical,
+    Horizontal,
 }
