@@ -14,6 +14,10 @@ pub enum VerticalPolicy {
     /// Keep the current column and skip rows that do not have it.
     /// Useful when column identity should be preserved across jagged rows.
     SkipMissing,
+    /// Remember a preferred column across up/down.
+    /// Shorter rows land on their last cell; wider rows restore that column.
+    /// Horizontal movement and explicit column changes update the preferred column.
+    StickyColumn,
 }
 
 /// How horizontal movement behaves at the start/end of a row.
@@ -33,6 +37,9 @@ pub struct Cursor {
     wrap_mode: WrapMode,
     vertical_policy: VerticalPolicy,
     horizontal_policy: HorizontalPolicy,
+    /// Column to restore on `VerticalPolicy::StickyColumn` up/down.
+    /// Tracks the last explicit column. Other vertical policies leave it untouched.
+    preferred_column: usize,
 }
 
 impl Cursor {
@@ -47,6 +54,7 @@ impl Cursor {
             wrap_mode: WrapMode::Wrap,
             vertical_policy: VerticalPolicy::ClampColumn,
             horizontal_policy: HorizontalPolicy::WithinRow,
+            preferred_column: 0,
         })
     }
 
@@ -61,6 +69,7 @@ impl Cursor {
             wrap_mode: WrapMode::Wrap,
             vertical_policy: VerticalPolicy::ClampColumn,
             horizontal_policy: HorizontalPolicy::WithinRow,
+            preferred_column: 0,
         })
     }
 
@@ -108,6 +117,11 @@ impl Cursor {
         self.horizontal_policy = horizontal_policy;
     }
 
+    /// Column remembered for `VerticalPolicy::StickyColumn` up/down.
+    pub fn preferred_column(&self) -> usize {
+        self.preferred_column
+    }
+
     /// Flat 0-based index of the current cell (row-major).
     pub fn index(&self) -> usize {
         self.column_sizes[..self.line]
@@ -132,6 +146,7 @@ impl Cursor {
             if remaining < size {
                 self.line = line;
                 self.column = remaining;
+                self.remember_column();
                 return Ok(());
             }
             remaining -= size;
@@ -158,6 +173,7 @@ impl Cursor {
             .context("invalid cursor")?;
         self.line = line;
         self.column = column;
+        self.remember_column();
         Ok(())
     }
 
@@ -172,6 +188,7 @@ impl Cursor {
         self.validate_column_at(self.line, column)
             .context("invalid cursor")?;
         self.column = column;
+        self.remember_column();
         Ok(())
     }
 
@@ -179,6 +196,7 @@ impl Cursor {
     pub fn home(&mut self) {
         self.line = 0;
         self.column = 0;
+        self.remember_column();
     }
 
     /// Move to the last cell of the last row.
@@ -190,18 +208,21 @@ impl Cursor {
     /// Move to column 0 of the current row.
     pub fn row_start(&mut self) {
         self.column = 0;
+        self.remember_column();
     }
 
     /// Move to the last column of the current row.
     pub fn row_end(&mut self) {
         let col_size = self.current_column_size();
         self.column = col_size - 1;
+        self.remember_column();
     }
 
     pub fn up(&mut self) {
         match self.vertical_policy {
             VerticalPolicy::ClampColumn => self.up_clamp_column(),
             VerticalPolicy::SkipMissing => self.up_skip_missing(),
+            VerticalPolicy::StickyColumn => self.up_sticky_column(),
         }
     }
 
@@ -209,6 +230,7 @@ impl Cursor {
         match self.vertical_policy {
             VerticalPolicy::ClampColumn => self.down_clamp_column(),
             VerticalPolicy::SkipMissing => self.down_skip_missing(),
+            VerticalPolicy::StickyColumn => self.down_sticky_column(),
         }
     }
 
@@ -217,6 +239,7 @@ impl Cursor {
             HorizontalPolicy::WithinRow => self.left_within_row(),
             HorizontalPolicy::AcrossRows => self.left_across_rows(),
         }
+        self.remember_column();
     }
 
     pub fn right(&mut self) {
@@ -224,6 +247,7 @@ impl Cursor {
             HorizontalPolicy::WithinRow => self.right_within_row(),
             HorizontalPolicy::AcrossRows => self.right_across_rows(),
         }
+        self.remember_column();
     }
 
     fn left_within_row(&mut self) {
@@ -310,39 +334,68 @@ impl Cursor {
     }
 
     fn up_clamp_column(&mut self) {
-        match self.wrap_mode {
-            WrapMode::Wrap => {
-                if self.line == 0 {
-                    self.line = self.line_count() - 1;
-                } else {
-                    self.line -= 1;
-                }
-            }
-            WrapMode::Clamp => {
-                if 0 < self.line {
-                    self.line -= 1;
-                }
-            }
-        }
+        self.move_line(Direction::Up);
         self.clamp_column();
     }
 
     fn down_clamp_column(&mut self) {
-        match self.wrap_mode {
-            WrapMode::Wrap => {
-                if self.line + 1 == self.line_count() {
+        self.move_line(Direction::Down);
+        self.clamp_column();
+    }
+
+    fn up_sticky_column(&mut self) {
+        self.move_line(Direction::Up);
+        self.place_sticky_column();
+    }
+
+    fn down_sticky_column(&mut self) {
+        self.move_line(Direction::Down);
+        self.place_sticky_column();
+    }
+
+    /// Move to the adjacent row, wrapping or stopping according to `wrap_mode`.
+    fn move_line(&mut self, direction: Direction) {
+        let n = self.line_count();
+        match (self.wrap_mode, direction) {
+            (WrapMode::Wrap, Direction::Up) => {
+                if self.line == 0 {
+                    self.line = n - 1;
+                } else {
+                    self.line -= 1;
+                }
+            }
+            (WrapMode::Wrap, Direction::Down) => {
+                if self.line + 1 == n {
                     self.line = 0;
                 } else {
                     self.line += 1;
                 }
             }
-            WrapMode::Clamp => {
-                if self.line < self.line_count() - 1 {
+            (WrapMode::Clamp, Direction::Up) => {
+                if self.line > 0 {
+                    self.line -= 1;
+                }
+            }
+            (WrapMode::Clamp, Direction::Down) => {
+                if self.line + 1 < n {
                     self.line += 1;
                 }
             }
         }
-        self.clamp_column();
+    }
+
+    /// Land on the preferred column, or the row's last cell when it is shorter.
+    fn place_sticky_column(&mut self) {
+        let width = self.current_column_size();
+        if self.preferred_column < width {
+            self.column = self.preferred_column;
+        } else {
+            self.column = width - 1;
+        }
+    }
+
+    fn remember_column(&mut self) {
+        self.preferred_column = self.column;
     }
 
     fn up_skip_missing(&mut self) {
