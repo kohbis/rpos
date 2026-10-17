@@ -4,8 +4,6 @@ use crate::cursor::{Cursor, HorizontalPolicy, VerticalPolicy, WrapMode};
 
 #[derive(Debug)]
 pub struct Table {
-    pub height: usize,
-    pub width: usize,
     pub cursor: Cursor,
 }
 
@@ -15,9 +13,7 @@ impl Table {
             anyhow::bail!("invalid table size");
         }
         Ok(Self {
-            height,
-            width,
-            cursor: Cursor::new((height, width)),
+            cursor: Cursor::new((height, width))?,
         })
     }
 
@@ -25,13 +21,24 @@ impl Table {
         if widths.is_empty() || widths.contains(&0) {
             anyhow::bail!("invalid table size");
         }
-        let height = widths.len();
-        let width = widths.iter().copied().max().unwrap_or(0);
         Ok(Self {
-            height,
-            width,
-            cursor: Cursor::new_jagged(widths),
+            cursor: Cursor::new_jagged(widths)?,
         })
+    }
+
+    /// Number of rows (derived from the cursor's column sizes).
+    pub fn height(&self) -> usize {
+        self.cursor.line_count()
+    }
+
+    /// Maximum row width (derived from the cursor's column sizes).
+    pub fn width(&self) -> usize {
+        self.cursor
+            .column_sizes()
+            .iter()
+            .copied()
+            .max()
+            .unwrap_or(0)
     }
 
     pub fn wrap_mode(mut self, wrap_mode: WrapMode) -> Self {
@@ -54,10 +61,7 @@ impl Table {
         if height == 0 || width == 0 {
             anyhow::bail!("invalid table size");
         }
-        self.cursor.set_column_sizes(vec![width; height])?;
-        self.height = height;
-        self.width = width;
-        Ok(())
+        self.cursor.set_column_sizes(vec![width; height])
     }
 
     /// Replace per-row widths (jagged), clamping the cursor into the new bounds.
@@ -65,11 +69,6 @@ impl Table {
         if widths.is_empty() || widths.contains(&0) {
             anyhow::bail!("invalid table size");
         }
-        let height = widths.len();
-        let width = widths.iter().copied().max().unwrap_or(0);
-        self.cursor.set_column_sizes(widths)?;
-        self.height = height;
-        self.width = width;
-        Ok(())
+        self.cursor.set_column_sizes(widths)
     }
 }

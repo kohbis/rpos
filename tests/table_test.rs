@@ -6,8 +6,8 @@ mod tests {
     #[test]
     fn initialize_table() {
         let table = Table::new(3, 4).unwrap();
-        assert_eq!(table.height, 3);
-        assert_eq!(table.width, 4);
+        assert_eq!(table.height(), 3);
+        assert_eq!(table.width(), 4);
         assert_eq!(table.cursor.current(), (0, 0));
     }
 
@@ -38,24 +38,24 @@ mod tests {
     #[test]
     fn initialize_minimum_table() {
         let table = Table::new(1, 1).unwrap();
-        assert_eq!(table.height, 1);
-        assert_eq!(table.width, 1);
+        assert_eq!(table.height(), 1);
+        assert_eq!(table.width(), 1);
         assert_eq!(table.cursor.current(), (0, 0));
     }
 
     #[test]
     fn initialize_single_row_table() {
         let table = Table::new(1, 5).unwrap();
-        assert_eq!(table.height, 1);
-        assert_eq!(table.width, 5);
+        assert_eq!(table.height(), 1);
+        assert_eq!(table.width(), 5);
         assert_eq!(table.cursor.current(), (0, 0));
     }
 
     #[test]
     fn initialize_single_column_table() {
         let table = Table::new(5, 1).unwrap();
-        assert_eq!(table.height, 5);
-        assert_eq!(table.width, 1);
+        assert_eq!(table.height(), 5);
+        assert_eq!(table.width(), 1);
         assert_eq!(table.cursor.current(), (0, 0));
     }
 
@@ -71,16 +71,16 @@ mod tests {
     #[test]
     fn initialize_jagged_table() {
         let table = Table::new_jagged(vec![4, 2, 3]).unwrap();
-        assert_eq!(table.height, 3);
-        assert_eq!(table.width, 4); // width is max row width
+        assert_eq!(table.height(), 3);
+        assert_eq!(table.width(), 4); // width is max row width
         assert_eq!(table.cursor.current(), (0, 0));
     }
 
     #[test]
     fn jagged_table_width_is_max_row_width() {
         let table = Table::new_jagged(vec![2, 5, 3]).unwrap();
-        assert_eq!(table.height, 3);
-        assert_eq!(table.width, 5);
+        assert_eq!(table.height(), 3);
+        assert_eq!(table.width(), 5);
     }
 
     #[test]
@@ -223,8 +223,8 @@ mod tests {
         table.cursor.set(2, 3).unwrap();
 
         table.set_size(2, 2).unwrap();
-        assert_eq!(table.height, 2);
-        assert_eq!(table.width, 2);
+        assert_eq!(table.height(), 2);
+        assert_eq!(table.width(), 2);
         assert_eq!(table.cursor.current(), (1, 1));
     }
 
@@ -234,8 +234,8 @@ mod tests {
         table.cursor.set(1, 1).unwrap();
 
         table.set_widths(vec![3, 1, 2]).unwrap();
-        assert_eq!(table.height, 3);
-        assert_eq!(table.width, 3);
+        assert_eq!(table.height(), 3);
+        assert_eq!(table.width(), 3);
         assert_eq!(table.cursor.current(), (1, 0)); // clamped to row 1's only column
     }
 
@@ -244,5 +244,27 @@ mod tests {
         let mut table = Table::new(2, 2).unwrap();
         assert!(table.set_size(0, 2).is_err());
         assert!(table.set_widths(vec![1, 0]).is_err());
+    }
+
+    #[test]
+    fn height_and_width_track_cursor_set_column_sizes() {
+        let mut table = Table::new(3, 4).unwrap();
+        table.cursor.set(2, 3).unwrap();
+
+        table.cursor.set_column_sizes(vec![2, 1]).unwrap();
+        assert_eq!(table.height(), 2);
+        assert_eq!(table.width(), 2);
+        assert_eq!(table.cursor.current(), (1, 0));
+    }
+
+    #[test]
+    fn set_size_error_leaves_dimensions_unchanged() {
+        let mut table = Table::new(3, 4).unwrap();
+        table.cursor.set(1, 2).unwrap();
+
+        assert!(table.set_size(0, 2).is_err());
+        assert_eq!(table.height(), 3);
+        assert_eq!(table.width(), 4);
+        assert_eq!(table.cursor.current(), (1, 2));
     }
 }

@@ -191,10 +191,14 @@ fn main() {
     table.set_size(2, 2).unwrap();
     assert_eq!(table.cursor.current(), (1, 1)); // clamped
 
-    // Jagged resize
+    // Jagged resize (also via cursor — table dimensions stay in sync)
     table.set_widths(vec![3, 1, 2]).unwrap();
-    assert_eq!(table.height, 3);
-    assert_eq!(table.width, 3); // max row width
+    assert_eq!(table.height(), 3);
+    assert_eq!(table.width(), 3); // max row width
+
+    table.cursor.set_column_sizes(vec![2, 2]).unwrap();
+    assert_eq!(table.height(), 2);
+    assert_eq!(table.width(), 2);
 }
 ```
 
@@ -205,7 +209,8 @@ fn main() {
 | Method | Description |
 |--------|-------------|
 | `Table::new(height, width)` | Creates a rectangular table |
-| `Table::new_jagged(widths)` | Creates a jagged table (`width` = max row width) |
+| `Table::new_jagged(widths)` | Creates a jagged table |
+| `table.height()` / `table.width()` | Row count / max row width (derived from cursor) |
 | `table.wrap_mode(mode)` | Builder: set wrap mode |
 | `table.vertical_policy(policy)` | Builder: set vertical policy |
 | `table.horizontal_policy(policy)` | Builder: set horizontal policy |
