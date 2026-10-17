@@ -218,36 +218,48 @@ impl Cursor {
         self.remember_column();
     }
 
-    pub fn up(&mut self) {
+    /// Move up one row. Returns `true` when the cell changes.
+    pub fn up(&mut self) -> bool {
+        let before = self.current();
         match self.vertical_policy {
             VerticalPolicy::ClampColumn => self.up_clamp_column(),
             VerticalPolicy::SkipMissing => self.up_skip_missing(),
             VerticalPolicy::StickyColumn => self.up_sticky_column(),
         }
+        self.current() != before
     }
 
-    pub fn down(&mut self) {
+    /// Move down one row. Returns `true` when the cell changes.
+    pub fn down(&mut self) -> bool {
+        let before = self.current();
         match self.vertical_policy {
             VerticalPolicy::ClampColumn => self.down_clamp_column(),
             VerticalPolicy::SkipMissing => self.down_skip_missing(),
             VerticalPolicy::StickyColumn => self.down_sticky_column(),
         }
+        self.current() != before
     }
 
-    pub fn left(&mut self) {
+    /// Move left one cell. Returns `true` when the cell changes.
+    pub fn left(&mut self) -> bool {
+        let before = self.current();
         match self.horizontal_policy {
             HorizontalPolicy::WithinRow => self.left_within_row(),
             HorizontalPolicy::AcrossRows => self.left_across_rows(),
         }
         self.remember_column();
+        self.current() != before
     }
 
-    pub fn right(&mut self) {
+    /// Move right one cell. Returns `true` when the cell changes.
+    pub fn right(&mut self) -> bool {
+        let before = self.current();
         match self.horizontal_policy {
             HorizontalPolicy::WithinRow => self.right_within_row(),
             HorizontalPolicy::AcrossRows => self.right_across_rows(),
         }
         self.remember_column();
+        self.current() != before
     }
 
     /// Move down (`delta > 0`) or up (`delta < 0`) by up to `delta` steps.
@@ -276,16 +288,14 @@ impl Cursor {
     }
 
     /// Repeat `step` up to `steps` times with wrapping disabled, stopping when a step does not move.
-    fn repeat_toward_edge(&mut self, steps: usize, step: fn(&mut Self)) {
+    fn repeat_toward_edge(&mut self, steps: usize, step: fn(&mut Self) -> bool) {
         if steps == 0 {
             return;
         }
         let wrap_mode = self.wrap_mode;
         self.wrap_mode = WrapMode::Clamp;
         for _ in 0..steps {
-            let before = self.current();
-            step(self);
-            if self.current() == before {
+            if !step(self) {
                 break;
             }
         }

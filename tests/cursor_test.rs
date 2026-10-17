@@ -1057,4 +1057,92 @@ mod tests {
         cursor.shift_line(2);
         assert_eq!(cursor.current(), (2, 2));
     }
+
+    #[test]
+    fn clamp_move_reports_whether_the_cell_changed() {
+        let mut cursor = Table::new(3, 4).unwrap().wrap_mode(WrapMode::Clamp).cursor;
+
+        assert!(!cursor.up());
+        assert!(!cursor.left());
+        assert_eq!(cursor.current(), (0, 0));
+
+        assert!(cursor.down());
+        assert!(cursor.right());
+        assert_eq!(cursor.current(), (1, 1));
+
+        cursor.set(2, 3).unwrap();
+        assert!(!cursor.down());
+        assert!(!cursor.right());
+        assert_eq!(cursor.current(), (2, 3));
+    }
+
+    #[test]
+    fn wrap_move_reports_a_change_at_the_edge() {
+        let mut cursor = Table::new(3, 4).unwrap().cursor;
+
+        assert!(cursor.up());
+        assert_eq!(cursor.current(), (2, 0));
+        assert!(cursor.left());
+        assert_eq!(cursor.current(), (2, 3));
+    }
+
+    #[test]
+    fn move_on_a_single_cell_reports_no_change() {
+        let mut cursor = Table::new(1, 1).unwrap().cursor;
+
+        assert!(!cursor.up());
+        assert!(!cursor.down());
+        assert!(!cursor.left());
+        assert!(!cursor.right());
+        assert_eq!(cursor.current(), (0, 0));
+    }
+
+    #[test]
+    fn skip_missing_reports_when_no_row_has_the_column() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 3])
+            .unwrap()
+            .vertical_policy(VerticalPolicy::SkipMissing)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+
+        assert!(!cursor.down());
+        assert_eq!(cursor.current(), (0, 3));
+
+        cursor.set_column_sizes(vec![4, 2, 4]).unwrap();
+        assert!(cursor.down());
+        assert_eq!(cursor.current(), (2, 3));
+    }
+
+    #[test]
+    fn sticky_clamp_reports_no_change_at_the_edge() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .wrap_mode(WrapMode::Clamp)
+            .vertical_policy(VerticalPolicy::StickyColumn)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+
+        assert!(!cursor.up());
+        assert_eq!(cursor.current(), (0, 3));
+
+        assert!(cursor.down());
+        assert_eq!(cursor.current(), (1, 1));
+        assert_eq!(cursor.preferred_column(), 3);
+    }
+
+    #[test]
+    fn across_rows_clamp_reports_no_change_at_the_last_cell() {
+        let mut cursor = Table::new(2, 2)
+            .unwrap()
+            .wrap_mode(WrapMode::Clamp)
+            .horizontal_policy(HorizontalPolicy::AcrossRows)
+            .cursor;
+        cursor.set(1, 1).unwrap();
+
+        assert!(!cursor.right());
+        assert_eq!(cursor.current(), (1, 1));
+
+        assert!(cursor.left());
+        assert_eq!(cursor.current(), (1, 0));
+    }
 }
