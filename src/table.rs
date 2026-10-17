@@ -25,6 +25,14 @@ impl Table {
         })
     }
 
+    /// Each inner vec is the present column indexes on that row.
+    ///
+    /// See [`Cursor::new_sparse`](crate::Cursor::new_sparse).
+    pub fn new_sparse(rows: Vec<Vec<usize>>) -> Result<Self> {
+        let cursor = Cursor::new_sparse(rows).map_err(|_| Error::InvalidTableSize)?;
+        Ok(Self { cursor })
+    }
+
     /// Number of rows (derived from the cursor's column sizes).
     pub fn height(&self) -> usize {
         self.cursor.line_count()
@@ -79,5 +87,12 @@ impl Table {
             return Err(Error::InvalidTableSize);
         }
         self.cursor.set_column_sizes(widths)
+    }
+
+    /// Replace the present columns of each row, clamping the cursor onto a present cell.
+    pub fn set_rows(&mut self, rows: Vec<Vec<usize>>) -> Result<()> {
+        self.cursor
+            .set_rows(rows)
+            .map_err(|_| Error::InvalidTableSize)
     }
 }
