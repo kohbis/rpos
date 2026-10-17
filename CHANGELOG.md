@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.5.0](https://github.com/kohbis/rpos/compare/v0.4.0...v0.5.0) (2026-10-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* table.height/width are methods, not fields.
+* Table::new_jagged (and set_widths) set `width` to the maximum row width instead of the first row's width.
+
+### Features
+
+* add VerticalPolicy::SkipMissing for jagged up/down ([#94](https://github.com/kohbis/rpos/issues/94)) ([8a39518](https://github.com/kohbis/rpos/commit/8a39518beea4d12737f703f522a434961332c25b))
+* expand cursor navigation APIs for general 2D UIs ([#95](https://github.com/kohbis/rpos/issues/95)) ([412eaa2](https://github.com/kohbis/rpos/commit/412eaa2cadd6a2743aaac146a3d4f211fbf396b9))
+
+
+### Miscellaneous Chores
+
+* **deps:** bump anyhow from 1.0.101 to 1.0.102 ([37c8484](https://github.com/kohbis/rpos/commit/37c84840ebc8921f47d9ad8974b9c86efb73ddfd))
+* **deps:** bump anyhow from 1.0.101 to 1.0.102 ([6e285ae](https://github.com/kohbis/rpos/commit/6e285ae42e05ded38481509758f7161a8e6fe6e3))
+* **deps:** bump anyhow from 1.0.102 to 1.0.103 ([755a85a](https://github.com/kohbis/rpos/commit/755a85a9afffba3917d223c3d3a395d287e0f81a))
+* **deps:** bump anyhow from 1.0.103 to 1.0.104 ([91b4b98](https://github.com/kohbis/rpos/commit/91b4b98c7cb9c61e5c88f64e98fb43ef00329b2f))
+* **deps:** bump googleapis/release-please-action from 4 to 5 ([0aa537b](https://github.com/kohbis/rpos/commit/0aa537b1e98af0fee947e52a6d6de85c3c05c9bc))
+
+
+### Code Refactoring
+
+* derive Table dimensions from Cursor and re-export Cursor ([#96](https://github.com/kohbis/rpos/issues/96)) ([0c21c78](https://github.com/kohbis/rpos/commit/0c21c78161da48de49df16b481c84fe1a3847a69))
+
 ## [0.4.0](https://github.com/kohbis/rpos/compare/v0.3.3...v0.4.0) (2026-02-07)
 
 
