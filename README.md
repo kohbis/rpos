@@ -17,6 +17,7 @@ A cursor manager on table for Rust.
 - **Jump helpers**: `home` / `end` / `row_start` / `row_end`
 - **Linear index**: row-major `index` / `set_index`
 - **Resize** without recreating the table
+- **Selection** as its own rectangle between an anchor cell and the cursor, clipped to jagged rows
 
 ## Installation
 
@@ -238,6 +239,33 @@ fn main() {
 }
 ```
 
+### Selection
+
+`Selection` is separate from the cursor. It is the inclusive rectangle between an anchor and a focus (the cursor's current cell). On a jagged table, cells past a row's width are omitted:
+
+```rust
+use rpos::{table::Table, Selection};
+
+fn main() {
+    let mut table = Table::new_jagged(vec![4, 2, 4]).unwrap();
+    table.cursor.set(2, 3).unwrap();
+
+    let selection = Selection::anchored(&table.cursor, (0, 1)).unwrap();
+    assert_eq!(
+        selection.cells(table.cursor.column_sizes()).collect::<Vec<_>>(),
+        vec![
+            (0, 1),
+            (0, 2),
+            (0, 3),
+            (1, 1), // row 1 has no column 2 or 3
+            (2, 1),
+            (2, 2),
+            (2, 3),
+        ]
+    );
+}
+```
+
 ## API Reference
 
 ### Table
@@ -291,6 +319,19 @@ fn main() {
 | `up` / `down` / `left` / `right` | Directional movement |
 | `shift_line` / `shift_column` | Repeat that step, stopping at the edge |
 | `home` / `end` / `row_start` / `row_end` | Jump helpers |
+
+### Selection
+
+| Method | Description |
+|--------|-------------|
+| `Selection::new(anchor, focus)` | Rectangle between two cells |
+| `Selection::at_cursor(cursor)` | Anchor and focus on the cursor's current cell |
+| `Selection::anchored(cursor, anchor)` | Anchor on a cell of the cursor's table, focus at the cursor |
+| `anchor` / `focus` | The two ends |
+| `with_focus(focus)` | Move the focus, keeping the anchor |
+| `lines` / `columns` | Inclusive normalized bounds |
+| `contains(column_sizes, position)` | Cell is inside the rectangle and exists on that row |
+| `cells(column_sizes)` | Existing cells in row-major order |
 
 ## License
 
