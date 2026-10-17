@@ -208,6 +208,18 @@ mod tests {
     }
 
     #[test]
+    fn builder_sets_wrap_modes_independently() {
+        let mut table = Table::new(3, 4)
+            .unwrap()
+            .vertical_wrap_mode(WrapMode::Clamp)
+            .horizontal_wrap_mode(WrapMode::Wrap);
+
+        assert!(!table.cursor.up());
+        assert!(table.cursor.left());
+        assert_eq!(table.cursor.current(), (0, 3));
+    }
+
+    #[test]
     fn builder_chains_wrap_mode_and_vertical_policy() {
         let mut table = Table::new_jagged(vec![4, 2, 4])
             .unwrap()

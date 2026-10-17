@@ -9,7 +9,7 @@ A cursor manager on table for Rust.
 
 `rpos` manages a 0-indexed cursor on a 2D table — rectangular or jagged — with configurable edge behavior. It is intended as a small, reusable building block for TUIs, menus, grids, and other 2D selection UIs.
 
-- **Wrap / clamp** at table edges (`WrapMode`)
+- **Wrap / clamp** at table edges (`WrapMode`), separately for vertical and horizontal movement
 - **Jagged rows** with per-row widths
 - **Vertical policies** for shorter rows: clamp column, skip rows missing the column, or remember a preferred column
 - **Horizontal policies**: stay within a row, or continue across rows
@@ -134,6 +134,23 @@ fn main() {
     clamped.cursor.up();
     clamped.cursor.left();
     assert_eq!(clamped.cursor.current(), (0, 0));
+}
+```
+
+The two axes can differ. `wrap_mode` sets both. `vertical_wrap_mode` and `horizontal_wrap_mode` set one:
+
+```rust
+use rpos::{table::Table, WrapMode};
+
+fn main() {
+    let mut table = Table::new(3, 4)
+        .unwrap()
+        .vertical_wrap_mode(WrapMode::Clamp)
+        .horizontal_wrap_mode(WrapMode::Wrap);
+
+    assert!(!table.cursor.up());
+    assert_eq!(table.cursor.left(), true);
+    assert_eq!(table.cursor.current(), (0, 3));
 }
 ```
 
@@ -289,7 +306,9 @@ fn main() {
 | `Table::new(height, width)` | Creates a rectangular table |
 | `Table::new_jagged(widths)` | Creates a jagged table |
 | `table.height()` / `table.width()` | Row count / max row width (derived from cursor) |
-| `table.wrap_mode(mode)` | Builder: set wrap mode |
+| `table.wrap_mode(mode)` | Builder: set both wrap modes |
+| `table.vertical_wrap_mode(mode)` | Builder: set the vertical wrap mode |
+| `table.horizontal_wrap_mode(mode)` | Builder: set the horizontal wrap mode |
 | `table.vertical_policy(policy)` | Builder: set vertical policy |
 | `table.horizontal_policy(policy)` | Builder: set horizontal policy |
 | `table.set_size(height, width)` | Resize to a rectangle (clamps cursor) |
@@ -326,7 +345,9 @@ fn main() {
 | `set` / `set_line` / `set_column` | Absolute positioning |
 | `index` / `set_index` / `cell_count` | Row-major linear index |
 | `set_column_sizes` | Replace per-row widths (clamps cursor) |
-| `wrap_mode` / `set_wrap_mode` | Edge wrap vs clamp |
+| `wrap_mode` / `set_wrap_mode` | Shared wrap mode (`None` when the axes differ) / set both axes |
+| `vertical_wrap_mode` / `set_vertical_wrap_mode` | Wrap or clamp for up/down |
+| `horizontal_wrap_mode` / `set_horizontal_wrap_mode` | Wrap or clamp for left/right |
 | `vertical_policy` / `set_vertical_policy` | Jagged vertical behavior |
 | `preferred_column` | Column remembered by `StickyColumn` |
 | `horizontal_policy` / `set_horizontal_policy` | Horizontal row-crossing behavior |
