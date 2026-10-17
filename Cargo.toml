@@ -9,6 +9,3 @@ description = "Cursor Manager on Table"
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/kohbis/rpos"
-
-[dependencies]
-anyhow = "1.0.102"

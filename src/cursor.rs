@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use crate::{Error, Result};
 
 /// How movement behaves at an edge. Vertical and horizontal edges are set separately.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -49,7 +49,7 @@ pub struct Cursor {
 impl Cursor {
     pub fn new((line_size, column_size): (usize, usize)) -> Result<Self> {
         if line_size == 0 || column_size == 0 {
-            anyhow::bail!("invalid column sizes");
+            return Err(Error::InvalidColumnSizes);
         }
         Ok(Self {
             line: 0,
@@ -65,7 +65,7 @@ impl Cursor {
 
     pub fn new_jagged(column_sizes: Vec<usize>) -> Result<Self> {
         if column_sizes.is_empty() || column_sizes.contains(&0) {
-            anyhow::bail!("invalid column sizes");
+            return Err(Error::InvalidColumnSizes);
         }
         Ok(Self {
             line: 0,
@@ -168,7 +168,10 @@ impl Cursor {
     pub fn set_index(&mut self, index: usize) -> Result<()> {
         let total = self.cell_count();
         if index >= total {
-            anyhow::bail!("index must be less than cell_count: {total} (0-indexed)");
+            return Err(Error::IndexOutOfBounds {
+                index,
+                cell_count: total,
+            });
         }
         let mut remaining = index;
         for (line, &size) in self.column_sizes.iter().enumerate() {
@@ -186,7 +189,7 @@ impl Cursor {
     /// Replace per-row column widths, clamping the cursor into the new bounds.
     pub fn set_column_sizes(&mut self, column_sizes: Vec<usize>) -> Result<()> {
         if column_sizes.is_empty() || column_sizes.contains(&0) {
-            anyhow::bail!("invalid column sizes");
+            return Err(Error::InvalidColumnSizes);
         }
         self.column_sizes = column_sizes;
         if self.line >= self.line_count() {
@@ -197,9 +200,8 @@ impl Cursor {
     }
 
     pub fn set(&mut self, line: usize, column: usize) -> Result<()> {
-        self.validate_line(line).context("invalid cursor")?;
-        self.validate_column_at(line, column)
-            .context("invalid cursor")?;
+        self.validate_line(line)?;
+        self.validate_column_at(line, column)?;
         self.line = line;
         self.column = column;
         self.remember_column();
@@ -207,15 +209,14 @@ impl Cursor {
     }
 
     pub fn set_line(&mut self, line: usize) -> Result<()> {
-        self.validate_line(line).context("invalid cursor")?;
+        self.validate_line(line)?;
         self.line = line;
         self.clamp_column();
         Ok(())
     }
 
     pub fn set_column(&mut self, column: usize) -> Result<()> {
-        self.validate_column_at(self.line, column)
-            .context("invalid cursor")?;
+        self.validate_column_at(self.line, column)?;
         self.column = column;
         self.remember_column();
         Ok(())
@@ -555,19 +556,20 @@ impl Cursor {
     }
 
     fn validate_line(&self, line: usize) -> Result<()> {
-        if line >= self.line_count() {
-            anyhow::bail!(
-                "line must be less than line_size: {} (0-indexed)",
-                self.line_count(),
-            )
+        let line_count = self.line_count();
+        if line >= line_count {
+            return Err(Error::LineOutOfBounds { line, line_count });
         }
         Ok(())
     }
 
     fn validate_column_at(&self, line: usize, column: usize) -> Result<()> {
-        let col_size = self.column_sizes[line];
-        if column >= col_size {
-            anyhow::bail!("column must be less than column_size: {col_size} (0-indexed)",)
+        let column_size = self.column_sizes[line];
+        if column >= column_size {
+            return Err(Error::ColumnOutOfBounds {
+                column,
+                column_size,
+            });
         }
         Ok(())
     }

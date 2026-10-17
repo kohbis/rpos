@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::cursor::{Cursor, HorizontalPolicy, VerticalPolicy, WrapMode};
+use crate::{Error, Result};
 
 #[derive(Debug)]
 pub struct Table {
@@ -10,7 +9,7 @@ pub struct Table {
 impl Table {
     pub fn new(height: usize, width: usize) -> Result<Self> {
         if height == 0 || width == 0 {
-            anyhow::bail!("invalid table size");
+            return Err(Error::InvalidTableSize);
         }
         Ok(Self {
             cursor: Cursor::new((height, width))?,
@@ -19,7 +18,7 @@ impl Table {
 
     pub fn new_jagged(widths: Vec<usize>) -> Result<Self> {
         if widths.is_empty() || widths.contains(&0) {
-            anyhow::bail!("invalid table size");
+            return Err(Error::InvalidTableSize);
         }
         Ok(Self {
             cursor: Cursor::new_jagged(widths)?,
@@ -69,7 +68,7 @@ impl Table {
     /// Resize to a rectangular table, clamping the cursor into the new bounds.
     pub fn set_size(&mut self, height: usize, width: usize) -> Result<()> {
         if height == 0 || width == 0 {
-            anyhow::bail!("invalid table size");
+            return Err(Error::InvalidTableSize);
         }
         self.cursor.set_column_sizes(vec![width; height])
     }
@@ -77,7 +76,7 @@ impl Table {
     /// Replace per-row widths (jagged), clamping the cursor into the new bounds.
     pub fn set_widths(&mut self, widths: Vec<usize>) -> Result<()> {
         if widths.is_empty() || widths.contains(&0) {
-            anyhow::bail!("invalid table size");
+            return Err(Error::InvalidTableSize);
         }
         self.cursor.set_column_sizes(widths)
     }

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use rpos::table::Table;
-    use rpos::{Cursor, HorizontalPolicy, VerticalPolicy, WrapMode};
+    use rpos::{Cursor, Error, HorizontalPolicy, VerticalPolicy, WrapMode};
 
     #[test]
     fn initialize_cursor() {
@@ -38,11 +38,13 @@ mod tests {
     fn set_cursor_out_of_range() {
         let mut cursor = Table::new(3, 4).unwrap().cursor;
 
-        assert!(cursor
-            .set(3, 4)
-            .unwrap_err()
-            .to_string()
-            .contains("invalid cursor"));
+        assert_eq!(
+            cursor.set(3, 4).unwrap_err(),
+            Error::LineOutOfBounds {
+                line: 3,
+                line_count: 3
+            }
+        );
     }
 
     #[test]
@@ -57,11 +59,13 @@ mod tests {
     fn set_cursor_line_out_of_range() {
         let mut cursor = Table::new(3, 4).unwrap().cursor;
 
-        assert!(cursor
-            .set_line(3)
-            .unwrap_err()
-            .to_string()
-            .contains("invalid cursor"));
+        assert_eq!(
+            cursor.set_line(3).unwrap_err(),
+            Error::LineOutOfBounds {
+                line: 3,
+                line_count: 3
+            }
+        );
     }
 
     #[test]
@@ -76,11 +80,13 @@ mod tests {
     fn set_cursor_column_out_of_range() {
         let mut cursor = Table::new(3, 4).unwrap().cursor;
 
-        assert!(cursor
-            .set_column(4)
-            .unwrap_err()
-            .to_string()
-            .contains("invalid cursor"));
+        assert_eq!(
+            cursor.set_column(4).unwrap_err(),
+            Error::ColumnOutOfBounds {
+                column: 4,
+                column_size: 4
+            }
+        );
     }
 
     // Boundary movement tests - verify cursor wraps around
