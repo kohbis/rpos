@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::cursor::{Cursor, WrapMode};
+use crate::cursor::{Cursor, VerticalPolicy, WrapMode};
 
 #[derive(Debug)]
 pub struct Table {
@@ -36,6 +36,11 @@ impl Table {
 
     pub fn wrap_mode(mut self, wrap_mode: WrapMode) -> Self {
         self.cursor.set_wrap_mode(wrap_mode);
+        self
+    }
+
+    pub fn vertical_policy(mut self, vertical_policy: VerticalPolicy) -> Self {
+        self.cursor.set_vertical_policy(vertical_policy);
         self
     }
 }

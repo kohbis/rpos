@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use rpos::table::Table;
-    use rpos::WrapMode;
+    use rpos::{VerticalPolicy, WrapMode};
 
     #[test]
     fn initialize_cursor() {
@@ -387,5 +387,146 @@ mod tests {
 
         assert!(cursor.set_column(1).is_ok());
         assert!(cursor.set_column(2).is_err()); // out of bounds for row 1
+    }
+
+    // VerticalPolicy::SkipMissing — keep column, skip rows that lack it
+    #[test]
+    fn skip_missing_down_skips_shorter_rows() {
+        // Row 0: 4 cols, Row 1: 2 cols, Row 2: 3 cols
+        let mut cursor = Table::new_jagged(vec![4, 2, 3])
+            .unwrap()
+            .vertical_policy(VerticalPolicy::SkipMissing)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+
+        cursor.down(); // row 1 lacks col 3; skip to… nowhere with col 3 under wrap? only row 0 has 4 cols
+                       // Only row 0 has column 3, so wrap finds no other row → stay
+        assert_eq!(cursor.current(), (0, 3));
+    }
+
+    #[test]
+    fn skip_missing_down_moves_to_next_row_with_column() {
+        // Row 0: 4, Row 1: 2, Row 2: 4 — col 3 exists on rows 0 and 2
+        let mut cursor = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .vertical_policy(VerticalPolicy::SkipMissing)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+
+        cursor.down();
+        assert_eq!(cursor.current(), (2, 3)); // skipped row 1
+    }
+
+    #[test]
+    fn skip_missing_up_moves_to_previous_row_with_column() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .vertical_policy(VerticalPolicy::SkipMissing)
+            .cursor;
+        cursor.set(2, 3).unwrap();
+
+        cursor.up();
+        assert_eq!(cursor.current(), (0, 3)); // skipped row 1
+    }
+
+    #[test]
+    fn skip_missing_wrap_from_bottom_to_top() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .wrap_mode(WrapMode::Wrap)
+            .vertical_policy(VerticalPolicy::SkipMissing)
+            .cursor;
+        cursor.set(2, 3).unwrap();
+
+        cursor.down(); // wrap: skip row 1, land on row 0
+        assert_eq!(cursor.current(), (0, 3));
+    }
+
+    #[test]
+    fn skip_missing_wrap_from_top_to_bottom() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .wrap_mode(WrapMode::Wrap)
+            .vertical_policy(VerticalPolicy::SkipMissing)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+
+        cursor.up(); // wrap: skip row 1, land on row 2
+        assert_eq!(cursor.current(), (2, 3));
+    }
+
+    #[test]
+    fn skip_missing_clamp_stays_when_no_row_above() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .wrap_mode(WrapMode::Clamp)
+            .vertical_policy(VerticalPolicy::SkipMissing)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+
+        cursor.up();
+        assert_eq!(cursor.current(), (0, 3));
+    }
+
+    #[test]
+    fn skip_missing_clamp_stays_when_no_row_below_with_column() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 3])
+            .unwrap()
+            .wrap_mode(WrapMode::Clamp)
+            .vertical_policy(VerticalPolicy::SkipMissing)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+
+        cursor.down(); // rows 1 and 2 lack col 3
+        assert_eq!(cursor.current(), (0, 3));
+    }
+
+    #[test]
+    fn skip_missing_clamp_skips_intermediate_shorter_rows() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .wrap_mode(WrapMode::Clamp)
+            .vertical_policy(VerticalPolicy::SkipMissing)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+
+        cursor.down();
+        assert_eq!(cursor.current(), (2, 3));
+
+        cursor.down(); // already at last eligible row
+        assert_eq!(cursor.current(), (2, 3));
+    }
+
+    #[test]
+    fn skip_missing_preserves_column_on_adjacent_equal_width() {
+        let mut cursor = Table::new_jagged(vec![3, 3, 2])
+            .unwrap()
+            .vertical_policy(VerticalPolicy::SkipMissing)
+            .cursor;
+        cursor.set(0, 2).unwrap();
+
+        cursor.down();
+        assert_eq!(cursor.current(), (1, 2));
+    }
+
+    #[test]
+    fn default_vertical_policy_is_clamp_column() {
+        let cursor = Table::new_jagged(vec![4, 2, 3]).unwrap().cursor;
+        assert_eq!(cursor.vertical_policy(), VerticalPolicy::ClampColumn);
+    }
+
+    #[test]
+    fn set_vertical_policy_updates_behavior() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4]).unwrap().cursor;
+        cursor.set(0, 3).unwrap();
+
+        // Default ClampColumn: moves to row 1 and clamps
+        cursor.down();
+        assert_eq!(cursor.current(), (1, 1));
+
+        cursor.set(0, 3).unwrap();
+        cursor.set_vertical_policy(VerticalPolicy::SkipMissing);
+        cursor.down();
+        assert_eq!(cursor.current(), (2, 3));
     }
 }

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use rpos::table::Table;
-    use rpos::WrapMode;
+    use rpos::{VerticalPolicy, WrapMode};
 
     #[test]
     fn initialize_table() {
@@ -171,5 +171,32 @@ mod tests {
         table.cursor.set(0, 0).unwrap();
         table.cursor.up();
         assert_eq!(table.cursor.current(), (2, 0));
+    }
+
+    #[test]
+    fn jagged_table_with_skip_missing_policy() {
+        let mut table = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .vertical_policy(VerticalPolicy::SkipMissing);
+        table.cursor.set(0, 3).unwrap();
+
+        table.cursor.down();
+        assert_eq!(table.cursor.current(), (2, 3));
+        assert_eq!(table.cursor.vertical_policy(), VerticalPolicy::SkipMissing);
+    }
+
+    #[test]
+    fn builder_chains_wrap_mode_and_vertical_policy() {
+        let mut table = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .wrap_mode(WrapMode::Clamp)
+            .vertical_policy(VerticalPolicy::SkipMissing);
+        table.cursor.set(0, 3).unwrap();
+
+        table.cursor.up();
+        assert_eq!(table.cursor.current(), (0, 3));
+
+        table.cursor.down();
+        assert_eq!(table.cursor.current(), (2, 3));
     }
 }
