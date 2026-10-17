@@ -926,4 +926,135 @@ mod tests {
         cursor.down(); // wrap to row 0 and restore
         assert_eq!(cursor.current(), (0, 3));
     }
+
+    #[test]
+    fn shift_line_moves_by_delta_and_stops_at_the_edge() {
+        let mut cursor = Table::new(5, 3).unwrap().cursor;
+        assert_eq!(cursor.wrap_mode(), WrapMode::Wrap);
+
+        cursor.shift_line(2);
+        assert_eq!(cursor.current(), (2, 0));
+
+        cursor.shift_line(10);
+        assert_eq!(cursor.current(), (4, 0));
+
+        cursor.shift_line(-2);
+        assert_eq!(cursor.current(), (2, 0));
+
+        cursor.shift_line(-10);
+        assert_eq!(cursor.current(), (0, 0));
+
+        cursor.shift_line(0);
+        assert_eq!(cursor.current(), (0, 0));
+        assert_eq!(cursor.wrap_mode(), WrapMode::Wrap);
+    }
+
+    #[test]
+    fn shift_column_moves_within_the_row_and_stops_at_the_edge() {
+        let mut cursor = Table::new(3, 4).unwrap().cursor;
+
+        cursor.shift_column(2);
+        assert_eq!(cursor.current(), (0, 2));
+
+        cursor.shift_column(10);
+        assert_eq!(cursor.current(), (0, 3));
+
+        cursor.shift_column(-1);
+        assert_eq!(cursor.current(), (0, 2));
+
+        cursor.shift_column(-10);
+        assert_eq!(cursor.current(), (0, 0));
+        assert_eq!(cursor.wrap_mode(), WrapMode::Wrap);
+    }
+
+    #[test]
+    fn shift_line_one_step_matches_down_until_the_edge() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4]).unwrap().cursor;
+        cursor.set(0, 3).unwrap();
+
+        cursor.shift_line(1);
+        assert_eq!(cursor.current(), (1, 1)); // same clamp as down()
+
+        cursor.shift_line(1);
+        assert_eq!(cursor.current(), (2, 1));
+
+        cursor.shift_line(1); // down() would wrap to row 0
+        assert_eq!(cursor.current(), (2, 1));
+    }
+
+    #[test]
+    fn shift_line_skip_missing_stops_on_the_last_matching_row() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4, 2, 4])
+            .unwrap()
+            .vertical_policy(VerticalPolicy::SkipMissing)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+
+        cursor.shift_line(1);
+        assert_eq!(cursor.current(), (2, 3));
+
+        cursor.shift_line(10);
+        assert_eq!(cursor.current(), (4, 3));
+
+        cursor.shift_line(-1);
+        assert_eq!(cursor.current(), (2, 3));
+
+        cursor.shift_line(-10);
+        assert_eq!(cursor.current(), (0, 3));
+    }
+
+    #[test]
+    fn shift_line_sticky_restores_without_wrapping() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .vertical_policy(VerticalPolicy::StickyColumn)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+
+        cursor.shift_line(1);
+        assert_eq!(cursor.current(), (1, 1));
+        assert_eq!(cursor.preferred_column(), 3);
+
+        cursor.shift_line(5);
+        assert_eq!(cursor.current(), (2, 3));
+        assert_eq!(cursor.preferred_column(), 3);
+        assert_eq!(cursor.wrap_mode(), WrapMode::Wrap);
+    }
+
+    #[test]
+    fn shift_column_across_rows_stops_at_the_last_cell() {
+        let mut cursor = Table::new(2, 2)
+            .unwrap()
+            .horizontal_policy(HorizontalPolicy::AcrossRows)
+            .cursor;
+
+        cursor.shift_column(1);
+        assert_eq!(cursor.current(), (0, 1));
+
+        cursor.shift_column(10);
+        assert_eq!(cursor.current(), (1, 1));
+
+        cursor.shift_column(-3);
+        assert_eq!(cursor.current(), (0, 0));
+
+        cursor.shift_column(-1);
+        assert_eq!(cursor.current(), (0, 0));
+        assert_eq!(cursor.preferred_column(), 0);
+    }
+
+    #[test]
+    fn shift_column_updates_preferred_column() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .vertical_policy(VerticalPolicy::StickyColumn)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+
+        cursor.shift_column(-1);
+        assert_eq!(cursor.current(), (0, 2));
+        assert_eq!(cursor.preferred_column(), 2);
+
+        cursor.shift_line(2);
+        assert_eq!(cursor.current(), (2, 2));
+    }
 }

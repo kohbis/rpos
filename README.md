@@ -13,6 +13,7 @@ A cursor manager on table for Rust.
 - **Jagged rows** with per-row widths
 - **Vertical policies** for shorter rows: clamp column, skip rows missing the column, or remember a preferred column
 - **Horizontal policies**: stay within a row, or continue across rows
+- **Multi-step movement** (`shift_line` / `shift_column`) that stops at the edge instead of wrapping
 - **Jump helpers**: `home` / `end` / `row_start` / `row_end`
 - **Linear index**: row-major `index` / `set_index`
 - **Resize** without recreating the table
@@ -61,6 +62,23 @@ fn main() {
 
     table.cursor.left();
     assert_eq!(table.cursor.current(), (0, 0));
+}
+```
+
+`shift_line` and `shift_column` repeat that step. Positive values move down and right. They stop at the edge instead of wrapping, so a count larger than the table does not spin:
+
+```rust
+use rpos::table::Table;
+
+fn main() {
+    let mut table = Table::new(5, 4).unwrap();
+
+    table.cursor.shift_line(2);
+    table.cursor.shift_column(3);
+    assert_eq!(table.cursor.current(), (2, 3));
+
+    table.cursor.shift_line(10);
+    assert_eq!(table.cursor.current(), (4, 3));
 }
 ```
 
@@ -271,6 +289,7 @@ fn main() {
 | `preferred_column` | Column remembered by `StickyColumn` |
 | `horizontal_policy` / `set_horizontal_policy` | Horizontal row-crossing behavior |
 | `up` / `down` / `left` / `right` | Directional movement |
+| `shift_line` / `shift_column` | Repeat that step, stopping at the edge |
 | `home` / `end` / `row_start` / `row_end` | Jump helpers |
 
 ## License
