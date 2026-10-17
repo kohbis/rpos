@@ -18,7 +18,8 @@ pub enum VerticalPolicy {
     /// Useful when column identity should be preserved across jagged rows.
     SkipMissing,
     /// Remember a preferred column across up/down.
-    /// Shorter rows land on their last cell; wider rows restore that column.
+    /// Rows that have that column restore it; rows that lack it, including a hole
+    /// at that column, land on their last cell.
     /// Horizontal movement and explicit column changes update the preferred column.
     StickyColumn,
 }
@@ -36,6 +37,10 @@ pub enum HorizontalPolicy {
 pub struct Cursor {
     line: usize,
     column: usize,
+    /// Present columns on each row, ascending and unique.
+    /// A prefix row of width `n` is `0..n`.
+    row_columns: Vec<Vec<usize>>,
+    /// One past the last present column of each row. For a prefix row this is its width.
     column_sizes: Vec<usize>,
     vertical_wrap_mode: WrapMode,
     horizontal_wrap_mode: WrapMode,
@@ -51,32 +56,55 @@ impl Cursor {
         if line_size == 0 || column_size == 0 {
             return Err(Error::InvalidColumnSizes);
         }
-        Ok(Self {
-            line: 0,
-            column: 0,
-            column_sizes: vec![column_size; line_size],
-            vertical_wrap_mode: WrapMode::Wrap,
-            horizontal_wrap_mode: WrapMode::Wrap,
-            vertical_policy: VerticalPolicy::ClampColumn,
-            horizontal_policy: HorizontalPolicy::WithinRow,
-            preferred_column: 0,
-        })
+        let column_sizes = vec![column_size; line_size];
+        Ok(Self::from_prefix(column_sizes))
     }
 
     pub fn new_jagged(column_sizes: Vec<usize>) -> Result<Self> {
         if column_sizes.is_empty() || column_sizes.contains(&0) {
             return Err(Error::InvalidColumnSizes);
         }
+        Ok(Self::from_prefix(column_sizes))
+    }
+
+    /// Rows of present column indexes.
+    ///
+    /// Each row must contain at least one column. Duplicates are rejected.
+    /// Order does not matter. A row of `0..n` is the same shape as a jagged width of `n`.
+    /// Columns that are absent in the middle of a row are holes: movement, indexes,
+    /// and selection skip them.
+    pub fn new_sparse(rows: Vec<Vec<usize>>) -> Result<Self> {
+        let (row_columns, column_sizes) = prepare_sparse(rows)?;
+        let column = row_columns[0][0];
         Ok(Self {
             line: 0,
+            column,
+            row_columns,
+            column_sizes,
+            vertical_wrap_mode: WrapMode::Wrap,
+            horizontal_wrap_mode: WrapMode::Wrap,
+            vertical_policy: VerticalPolicy::ClampColumn,
+            horizontal_policy: HorizontalPolicy::WithinRow,
+            preferred_column: column,
+        })
+    }
+
+    fn from_prefix(column_sizes: Vec<usize>) -> Self {
+        let row_columns = column_sizes
+            .iter()
+            .map(|&width| (0..width).collect())
+            .collect();
+        Self {
+            line: 0,
             column: 0,
+            row_columns,
             column_sizes,
             vertical_wrap_mode: WrapMode::Wrap,
             horizontal_wrap_mode: WrapMode::Wrap,
             vertical_policy: VerticalPolicy::ClampColumn,
             horizontal_policy: HorizontalPolicy::WithinRow,
             preferred_column: 0,
-        })
+        }
     }
 
     pub fn current(&self) -> (usize, usize) {
@@ -95,8 +123,24 @@ impl Cursor {
         self.column_sizes.len()
     }
 
+    /// One past the last present column of each row.
+    ///
+    /// A prefix row of width `n` reports `n`. A sparse row reports one past its
+    /// rightmost cell, which can be larger than the number of cells on that row.
     pub fn column_sizes(&self) -> &[usize] {
         &self.column_sizes
+    }
+
+    /// Present columns of each row, in ascending order.
+    pub fn row_columns(&self) -> &[Vec<usize>] {
+        &self.row_columns
+    }
+
+    /// Whether `(line, column)` is a present cell.
+    pub fn has_cell(&self, line: usize, column: usize) -> bool {
+        self.row_columns
+            .get(line)
+            .is_some_and(|columns| columns.binary_search(&column).is_ok())
     }
 
     /// `Some(mode)` when both axes use `mode`.
@@ -151,20 +195,22 @@ impl Cursor {
         self.preferred_column
     }
 
-    /// Flat 0-based index of the current cell (row-major).
+    /// Flat 0-based index of the current cell (row-major over present cells).
     pub fn index(&self) -> usize {
-        self.column_sizes[..self.line]
+        let prior = self.row_columns[..self.line]
             .iter()
-            .sum::<usize>()
-            .saturating_add(self.column)
+            .map(Vec::len)
+            .sum::<usize>();
+        let position = self.column_position();
+        prior.saturating_add(position)
     }
 
-    /// Total number of addressable cells.
+    /// Total number of present cells.
     pub fn cell_count(&self) -> usize {
-        self.column_sizes.iter().sum()
+        self.row_columns.iter().map(Vec::len).sum()
     }
 
-    /// Move to the cell at the given flat index (row-major).
+    /// Move to the cell at the given flat index (row-major over present cells).
     pub fn set_index(&mut self, index: usize) -> Result<()> {
         let total = self.cell_count();
         if index >= total {
@@ -174,14 +220,14 @@ impl Cursor {
             });
         }
         let mut remaining = index;
-        for (line, &size) in self.column_sizes.iter().enumerate() {
-            if remaining < size {
+        for (line, columns) in self.row_columns.iter().enumerate() {
+            if remaining < columns.len() {
                 self.line = line;
-                self.column = remaining;
+                self.column = columns[remaining];
                 self.remember_column();
                 return Ok(());
             }
-            remaining -= size;
+            remaining -= columns.len();
         }
         unreachable!("index validated against cell_count");
     }
@@ -191,11 +237,23 @@ impl Cursor {
         if column_sizes.is_empty() || column_sizes.contains(&0) {
             return Err(Error::InvalidColumnSizes);
         }
+        self.row_columns = column_sizes
+            .iter()
+            .map(|&width| (0..width).collect())
+            .collect();
         self.column_sizes = column_sizes;
-        if self.line >= self.line_count() {
-            self.line = self.line_count() - 1;
-        }
-        self.clamp_column();
+        self.clamp_into_bounds();
+        Ok(())
+    }
+
+    /// Replace the present columns of each row, clamping the cursor onto a present cell.
+    ///
+    /// Does not update the preferred column. See [`Self::new_sparse`] for the row shape.
+    pub fn set_rows(&mut self, rows: Vec<Vec<usize>>) -> Result<()> {
+        let (row_columns, column_sizes) = prepare_sparse(rows)?;
+        self.row_columns = row_columns;
+        self.column_sizes = column_sizes;
+        self.clamp_into_bounds();
         Ok(())
     }
 
@@ -222,10 +280,10 @@ impl Cursor {
         Ok(())
     }
 
-    /// Move to the first cell `(0, 0)`.
+    /// Move to the first cell of the first row.
     pub fn home(&mut self) {
         self.line = 0;
-        self.column = 0;
+        self.column = self.row_columns[0][0];
         self.remember_column();
     }
 
@@ -235,16 +293,15 @@ impl Cursor {
         self.row_end();
     }
 
-    /// Move to column 0 of the current row.
+    /// Move to the first present cell of the current row.
     pub fn row_start(&mut self) {
-        self.column = 0;
+        self.column = self.row_columns[self.line][0];
         self.remember_column();
     }
 
-    /// Move to the last column of the current row.
+    /// Move to the last present cell of the current row.
     pub fn row_end(&mut self) {
-        let col_size = self.current_column_size();
-        self.column = col_size - 1;
+        self.column = *self.row_columns[self.line].last().unwrap();
         self.remember_column();
     }
 
@@ -342,44 +399,28 @@ impl Cursor {
     }
 
     fn left_within_row(&mut self) {
-        let col_size = self.current_column_size();
-        match self.horizontal_wrap_mode {
-            WrapMode::Wrap => {
-                if self.column == 0 {
-                    self.column = col_size - 1;
-                } else {
-                    self.column -= 1;
-                }
-            }
-            WrapMode::Clamp => {
-                if 0 < self.column {
-                    self.column -= 1;
-                }
-            }
+        let position = self.column_position();
+        if position > 0 {
+            self.column = self.row_columns[self.line][position - 1];
+        } else if self.horizontal_wrap_mode == WrapMode::Wrap {
+            self.column = *self.row_columns[self.line].last().unwrap();
         }
     }
 
     fn right_within_row(&mut self) {
-        let col_size = self.current_column_size();
-        match self.horizontal_wrap_mode {
-            WrapMode::Wrap => {
-                if self.column + 1 == col_size {
-                    self.column = 0;
-                } else {
-                    self.column += 1;
-                }
-            }
-            WrapMode::Clamp => {
-                if self.column < col_size - 1 {
-                    self.column += 1;
-                }
-            }
+        let position = self.column_position();
+        let len = self.row_columns[self.line].len();
+        if position + 1 < len {
+            self.column = self.row_columns[self.line][position + 1];
+        } else if self.horizontal_wrap_mode == WrapMode::Wrap {
+            self.column = self.row_columns[self.line][0];
         }
     }
 
     fn left_across_rows(&mut self) {
-        if self.column > 0 {
-            self.column -= 1;
+        let position = self.column_position();
+        if position > 0 {
+            self.column = self.row_columns[self.line][position - 1];
             return;
         }
         match self.horizontal_wrap_mode {
@@ -401,9 +442,9 @@ impl Cursor {
     }
 
     fn right_across_rows(&mut self) {
-        let col_size = self.current_column_size();
-        if self.column + 1 < col_size {
-            self.column += 1;
+        let position = self.column_position();
+        if position + 1 < self.row_columns[self.line].len() {
+            self.column = self.row_columns[self.line][position + 1];
             return;
         }
         match self.horizontal_wrap_mode {
@@ -413,12 +454,12 @@ impl Cursor {
                 } else {
                     self.line += 1;
                 }
-                self.column = 0;
+                self.column = self.row_columns[self.line][0];
             }
             WrapMode::Clamp => {
                 if self.line + 1 < self.line_count() {
                     self.line += 1;
-                    self.column = 0;
+                    self.column = self.row_columns[self.line][0];
                 }
             }
         }
@@ -475,13 +516,15 @@ impl Cursor {
         }
     }
 
-    /// Land on the preferred column, or the row's last cell when it is shorter.
+    /// Land on the preferred column, or the row's last cell when that column is absent.
     fn place_sticky_column(&mut self) {
-        let width = self.current_column_size();
-        if self.preferred_column < width {
+        if self.row_columns[self.line]
+            .binary_search(&self.preferred_column)
+            .is_ok()
+        {
             self.column = self.preferred_column;
         } else {
-            self.column = width - 1;
+            self.column = *self.row_columns[self.line].last().unwrap();
         }
     }
 
@@ -507,7 +550,7 @@ impl Cursor {
             (WrapMode::Wrap, Direction::Up) => {
                 for i in 1..n {
                     let target = (self.line + n - i) % n;
-                    if self.column_sizes[target] > self.column {
+                    if self.has_cell(target, self.column) {
                         return Some(target);
                     }
                 }
@@ -516,7 +559,7 @@ impl Cursor {
             (WrapMode::Wrap, Direction::Down) => {
                 for i in 1..n {
                     let target = (self.line + i) % n;
-                    if self.column_sizes[target] > self.column {
+                    if self.has_cell(target, self.column) {
                         return Some(target);
                     }
                 }
@@ -527,7 +570,7 @@ impl Cursor {
                     return None;
                 }
                 for target in (0..self.line).rev() {
-                    if self.column_sizes[target] > self.column {
+                    if self.has_cell(target, self.column) {
                         return Some(target);
                     }
                 }
@@ -535,7 +578,7 @@ impl Cursor {
             }
             (WrapMode::Clamp, Direction::Down) => {
                 for target in (self.line + 1)..n {
-                    if self.column_sizes[target] > self.column {
+                    if self.has_cell(target, self.column) {
                         return Some(target);
                     }
                 }
@@ -544,15 +587,28 @@ impl Cursor {
         }
     }
 
-    fn current_column_size(&self) -> usize {
-        self.column_sizes[self.line]
+    fn column_position(&self) -> usize {
+        self.row_columns[self.line]
+            .binary_search(&self.column)
+            .expect("cursor is on a present cell")
     }
 
-    fn clamp_column(&mut self) {
-        let col_size = self.current_column_size();
-        if self.column >= col_size {
-            self.column = col_size - 1;
+    fn clamp_into_bounds(&mut self) {
+        if self.line >= self.line_count() {
+            self.line = self.line_count() - 1;
         }
+        self.clamp_column();
+    }
+
+    /// Keep the column when it exists. Otherwise the greatest present column at
+    /// or before it, or the first present column when every cell is to the right.
+    fn clamp_column(&mut self) {
+        self.column = clamp_to_present(&self.row_columns[self.line], self.column);
+    }
+
+    pub(crate) fn validate_cell(&self, line: usize, column: usize) -> Result<()> {
+        self.validate_line(line)?;
+        self.validate_column_at(line, column)
     }
 
     fn validate_line(&self, line: usize) -> Result<()> {
@@ -571,7 +627,43 @@ impl Cursor {
                 column_size,
             });
         }
+        if self.row_columns[line].binary_search(&column).is_err() {
+            return Err(Error::MissingCell { line, column });
+        }
         Ok(())
+    }
+}
+
+fn prepare_sparse(mut rows: Vec<Vec<usize>>) -> Result<(Vec<Vec<usize>>, Vec<usize>)> {
+    if rows.is_empty() {
+        return Err(Error::InvalidColumnSizes);
+    }
+    let mut column_sizes = Vec::with_capacity(rows.len());
+    for row in &mut rows {
+        if row.is_empty() {
+            return Err(Error::InvalidColumnSizes);
+        }
+        row.sort_unstable();
+        if row.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(Error::InvalidColumnSizes);
+        }
+        let span = row
+            .last()
+            .copied()
+            .unwrap()
+            .checked_add(1)
+            .ok_or(Error::InvalidColumnSizes)?;
+        column_sizes.push(span);
+    }
+    Ok((rows, column_sizes))
+}
+
+/// Greatest present column at or before `column`, or the first present column.
+fn clamp_to_present(columns: &[usize], column: usize) -> usize {
+    match columns.binary_search(&column) {
+        Ok(_) => column,
+        Err(0) => columns[0],
+        Err(index) => columns[index - 1],
     }
 }
 

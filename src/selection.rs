@@ -1,12 +1,13 @@
 use std::ops::RangeInclusive;
 
-use crate::{Cursor, Error, Result};
+use crate::{Cursor, Result};
 
 /// Inclusive rectangle between an anchor cell and a focus cell.
 ///
 /// The focus is the cursor position at the moving end of the selection. Row and
 /// column order are normalized, so either cell may be the top-left. On a jagged
-/// table, cells past a row's width are left out of the range.
+/// table, cells past a row's width are left out of the range. On a sparse table,
+/// [`Self::cells_rows`] also leaves out cells missing in the middle of a row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Selection {
     anchor_line: usize,
@@ -35,21 +36,7 @@ impl Selection {
     ///
     /// `anchor` must be a cell on `cursor`'s table.
     pub fn anchored(cursor: &Cursor, anchor: (usize, usize)) -> Result<Self> {
-        let (line, column) = anchor;
-        let sizes = cursor.column_sizes();
-        if line >= sizes.len() {
-            return Err(Error::LineOutOfBounds {
-                line,
-                line_count: sizes.len(),
-            });
-        }
-        let column_size = sizes[line];
-        if column >= column_size {
-            return Err(Error::ColumnOutOfBounds {
-                column,
-                column_size,
-            });
-        }
+        cursor.validate_cell(anchor.0, anchor.1)?;
         Ok(Self::new(anchor, cursor.current()))
     }
 
@@ -91,7 +78,25 @@ impl Selection {
         column_sizes.get(line).is_some_and(|width| column < *width)
     }
 
+    /// Whether `position` lies in the rectangle and is one of the present columns.
+    ///
+    /// `rows` is the present columns of each row, as from [`Cursor::row_columns`](crate::Cursor::row_columns).
+    /// A hole inside the rectangle is not contained.
+    pub fn contains_rows(&self, rows: &[Vec<usize>], position: (usize, usize)) -> bool {
+        let (line, column) = position;
+        let (line_start, line_end) = self.line_bounds();
+        let (column_start, column_end) = self.column_bounds();
+        if line < line_start || line > line_end || column < column_start || column > column_end {
+            return false;
+        }
+        rows.get(line)
+            .is_some_and(|columns| columns.binary_search(&column).is_ok())
+    }
+
     /// Cells inside the rectangle that exist in `column_sizes`, in row-major order.
+    ///
+    /// `column_sizes` describes prefix rows: every column in `0..width` exists.
+    /// For rows with holes, use [`Self::cells_rows`].
     pub fn cells<'a>(&self, column_sizes: &'a [usize]) -> SelectionCells<'a> {
         let (line_start, line_end) = self.line_bounds();
         let (column_start, column_end) = self.column_bounds();
@@ -102,6 +107,24 @@ impl Selection {
             column_sizes,
             line: line_start,
             column: column_start,
+            finished: false,
+        }
+    }
+
+    /// Present cells inside the rectangle, in row-major order.
+    ///
+    /// `rows` is the present columns of each row. Holes and columns past a row are omitted.
+    pub fn cells_rows<'a>(&self, rows: &'a [Vec<usize>]) -> SelectionRowCells<'a> {
+        let (line_start, line_end) = self.line_bounds();
+        let (column_start, column_end) = self.column_bounds();
+        SelectionRowCells {
+            line_end,
+            column_start,
+            column_end,
+            rows,
+            line: line_start,
+            index: 0,
+            positioned: false,
             finished: false,
         }
     }
@@ -162,6 +185,47 @@ impl Iterator for SelectionCells<'_> {
             }
             self.line += 1;
             self.column = self.column_start;
+        }
+        self.finished = true;
+        None
+    }
+}
+
+/// Row-major walk of the present cells in a [`Selection`].
+#[derive(Debug, Clone)]
+pub struct SelectionRowCells<'a> {
+    line_end: usize,
+    column_start: usize,
+    column_end: usize,
+    rows: &'a [Vec<usize>],
+    line: usize,
+    index: usize,
+    positioned: bool,
+    finished: bool,
+}
+
+impl Iterator for SelectionRowCells<'_> {
+    type Item = (usize, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+        while self.line <= self.line_end && self.line < self.rows.len() {
+            let columns = &self.rows[self.line];
+            if !self.positioned {
+                self.index = match columns.binary_search(&self.column_start) {
+                    Ok(index) | Err(index) => index,
+                };
+                self.positioned = true;
+            }
+            if self.index < columns.len() && columns[self.index] <= self.column_end {
+                let cell = (self.line, columns[self.index]);
+                self.index += 1;
+                return Some(cell);
+            }
+            self.line += 1;
+            self.positioned = false;
         }
         self.finished = true;
         None

@@ -10,7 +10,7 @@ A cursor manager on table for Rust.
 `rpos` manages a 0-indexed cursor on a 2D table — rectangular or jagged — with configurable edge behavior. It is intended as a small, reusable building block for TUIs, menus, grids, and other 2D selection UIs.
 
 - **Wrap / clamp** at table edges (`WrapMode`), separately for vertical and horizontal movement
-- **Jagged rows** with per-row widths
+- **Jagged rows** with per-row widths, and **sparse rows** with cells missing in the middle
 - **Vertical policies** for shorter rows: clamp column, skip rows missing the column, or remember a preferred column
 - **Horizontal policies**: stay within a row, or continue across rows
 - **Multi-step movement** (`shift_line` / `shift_column`) that stops at the edge instead of wrapping
@@ -187,7 +187,7 @@ fn main() {
 }
 ```
 
-`VerticalPolicy::StickyColumn` remembers the column from horizontal movement and from explicit column changes. Up and down land on the last cell of a shorter row, then restore the preferred column when the row is wide enough:
+`VerticalPolicy::StickyColumn` remembers the column from horizontal movement and from explicit column changes. Up and down land on the last cell when the row lacks that column (a shorter row, or a hole), then restore it when the row has the column:
 
 ```rust
 use rpos::{table::Table, VerticalPolicy};
@@ -202,6 +202,36 @@ fn main() {
     assert_eq!(table.cursor.current(), (1, 1)); // last cell of the short row
     table.cursor.down();
     assert_eq!(table.cursor.current(), (2, 3)); // preferred column restored
+}
+```
+
+A sparse row lists the columns that exist, so a cell can be missing in the middle. Left and right step between present cells. `column_sizes` is one past the rightmost cell, which is wider than the number of cells when a row has a hole:
+
+```rust
+use rpos::{table::Table, VerticalPolicy, WrapMode};
+
+fn main() {
+    // Row 0 has columns 0, 2, 5. Column 1 is a hole.
+    let mut table = Table::new_sparse(vec![vec![0, 2, 5], vec![0, 1], vec![0, 5]])
+        .unwrap()
+        .wrap_mode(WrapMode::Clamp);
+
+    assert_eq!(table.cursor.column_sizes(), &[6, 2, 6]);
+    table.cursor.right();
+    assert_eq!(table.cursor.current(), (0, 2)); // skipped the hole
+
+    assert!(table.cursor.set(0, 1).is_err()); // the hole is not a cell
+
+    table.cursor.set(0, 5).unwrap();
+    table.cursor.down(); // row 1 has no column 5, so clamp to its last cell
+    assert_eq!(table.cursor.current(), (1, 1));
+
+    table
+        .cursor
+        .set_vertical_policy(VerticalPolicy::SkipMissing);
+    table.cursor.set(0, 5).unwrap();
+    table.cursor.down(); // row 1 lacks column 5
+    assert_eq!(table.cursor.current(), (2, 5));
 }
 ```
 
@@ -272,7 +302,7 @@ fn main() {
 
 ### Selection
 
-`Selection` is separate from the cursor. It is the inclusive rectangle between an anchor and a focus (the cursor's current cell). On a jagged table, cells past a row's width are omitted:
+`Selection` is separate from the cursor. It is the inclusive rectangle between an anchor and a focus (the cursor's current cell). On a jagged table, cells past a row's width are omitted. On a sparse table, `cells_rows` also omits holes:
 
 ```rust
 use rpos::{table::Table, Selection};
@@ -294,6 +324,15 @@ fn main() {
             (2, 3),
         ]
     );
+
+    let sparse = Table::new_sparse(vec![vec![0, 2, 5], vec![0, 1]]).unwrap();
+    let selection = Selection::new((0, 0), (1, 2));
+    assert_eq!(
+        selection
+            .cells_rows(sparse.cursor.row_columns())
+            .collect::<Vec<_>>(),
+        vec![(0, 0), (0, 2), (1, 0), (1, 1)] // column 1 of row 0 is a hole
+    );
 }
 ```
 
@@ -305,6 +344,7 @@ fn main() {
 |--------|-------------|
 | `Table::new(height, width)` | Creates a rectangular table |
 | `Table::new_jagged(widths)` | Creates a jagged table |
+| `Table::new_sparse(rows)` | Creates a table from present columns per row |
 | `table.height()` / `table.width()` | Row count / max row width (derived from cursor) |
 | `table.wrap_mode(mode)` | Builder: set both wrap modes |
 | `table.vertical_wrap_mode(mode)` | Builder: set the vertical wrap mode |
@@ -313,6 +353,7 @@ fn main() {
 | `table.horizontal_policy(policy)` | Builder: set horizontal policy |
 | `table.set_size(height, width)` | Resize to a rectangle (clamps cursor) |
 | `table.set_widths(widths)` | Resize to jagged widths (clamps cursor) |
+| `table.set_rows(rows)` | Replace present columns per row (clamps cursor) |
 
 ### WrapMode
 
@@ -327,7 +368,7 @@ fn main() {
 |---------|-------------|
 | `VerticalPolicy::ClampColumn` | On up/down, move to adjacent row and clamp column (default) |
 | `VerticalPolicy::SkipMissing` | On up/down, keep column and skip rows that lack it |
-| `VerticalPolicy::StickyColumn` | On up/down, keep a preferred column: land on the last cell of a shorter row, restore it on a wider row |
+| `VerticalPolicy::StickyColumn` | On up/down, keep a preferred column: land on the last cell when that column is absent, restore it when the row has it |
 
 ### HorizontalPolicy
 
@@ -341,10 +382,12 @@ fn main() {
 | Method | Description |
 |--------|-------------|
 | `current()` / `line()` / `column()` | Current position |
-| `line_count()` / `column_sizes()` | Table shape |
-| `set` / `set_line` / `set_column` | Absolute positioning |
-| `index` / `set_index` / `cell_count` | Row-major linear index |
+| `line_count()` / `column_sizes()` | Row count / one past the last present column of each row |
+| `row_columns()` / `has_cell(line, column)` | Present columns, and whether one cell exists |
+| `set` / `set_line` / `set_column` | Absolute positioning (`set` rejects a hole) |
+| `index` / `set_index` / `cell_count` | Row-major index over present cells |
 | `set_column_sizes` | Replace per-row widths (clamps cursor) |
+| `set_rows` | Replace present columns per row (clamps cursor) |
 | `wrap_mode` / `set_wrap_mode` | Shared wrap mode (`None` when the axes differ) / set both axes |
 | `vertical_wrap_mode` / `set_vertical_wrap_mode` | Wrap or clamp for up/down |
 | `horizontal_wrap_mode` / `set_horizontal_wrap_mode` | Wrap or clamp for left/right |
@@ -365,8 +408,10 @@ fn main() {
 | `anchor` / `focus` | The two ends |
 | `with_focus(focus)` | Move the focus, keeping the anchor |
 | `lines` / `columns` | Inclusive normalized bounds |
-| `contains(column_sizes, position)` | Cell is inside the rectangle and exists on that row |
-| `cells(column_sizes)` | Existing cells in row-major order |
+| `contains(column_sizes, position)` | Cell is inside the rectangle and inside that prefix row |
+| `cells(column_sizes)` | Prefix-row cells in row-major order |
+| `contains_rows(rows, position)` | Cell is inside the rectangle and present on that row |
+| `cells_rows(rows)` | Present cells in row-major order, holes omitted |
 
 ### Error
 
@@ -374,10 +419,11 @@ Fallible operations return `Result<T, Error>`.
 
 | Variant | When |
 |---------|------|
-| `InvalidColumnSizes` | Cursor row list is empty, or a row width is zero |
-| `InvalidTableSize` | Table height or width is zero, or a jagged width list is empty or contains zero |
+| `InvalidColumnSizes` | Cursor row list is empty, a row has no cells, a width is zero, or a column is repeated |
+| `InvalidTableSize` | Table height or width is zero, or its row list is empty, has an empty row, or repeats a column |
 | `LineOutOfBounds` | Line is outside the table |
-| `ColumnOutOfBounds` | Column is outside that row |
+| `ColumnOutOfBounds` | Column is past the last present column on that row |
+| `MissingCell` | Column is inside the row's span, but that cell is a hole |
 | `IndexOutOfBounds` | Flat index is outside the cell count |
 
 ## License

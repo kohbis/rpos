@@ -3,14 +3,16 @@ use std::fmt;
 /// Failure from a cursor, table, or selection operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
-    /// A row list was empty, or a row width was zero.
+    /// A row list was empty, a row had no cells, a row width was zero, or a row repeated a column.
     InvalidColumnSizes,
-    /// A table height or width was zero, or a jagged width list was empty or contained zero.
+    /// A table height or width was zero, or a row list was empty, contained an empty row, or repeated a column.
     InvalidTableSize,
     /// `line` is outside `0..line_count`.
     LineOutOfBounds { line: usize, line_count: usize },
-    /// `column` is outside `0..column_size` on that row.
+    /// `column` is past the last present column on that row.
     ColumnOutOfBounds { column: usize, column_size: usize },
+    /// `column` is inside the row's span, but that cell is missing.
+    MissingCell { line: usize, column: usize },
     /// `index` is outside `0..cell_count`.
     IndexOutOfBounds { index: usize, cell_count: usize },
 }
@@ -30,6 +32,12 @@ impl fmt::Display for Error {
                 write!(
                     f,
                     "column must be less than column_size: {column_size} (0-indexed)"
+                )
+            }
+            Error::MissingCell { line, column } => {
+                write!(
+                    f,
+                    "missing cell at line {line}, column {column} (0-indexed)"
                 )
             }
             Error::IndexOutOfBounds { cell_count, .. } => {
