@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.6.0](https://github.com/kohbis/rpos/compare/v0.5.0...v0.6.0) (2026-10-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* Cursor::wrap_mode returns Option<WrapMode>, and None when the two axes differ.
+
+### Features
+
+* add Selection for a jagged rectangle between two cells ([#100](https://github.com/kohbis/rpos/issues/100)) ([ae8a952](https://github.com/kohbis/rpos/commit/ae8a9525e89aaea56a7c9e2bcd0ba1323ff93940))
+* add shift_line and shift_column ([#99](https://github.com/kohbis/rpos/issues/99)) ([8f101db](https://github.com/kohbis/rpos/commit/8f101dbe8adba2b95e50ebfe1a81cc451a71249b))
+* add VerticalPolicy::StickyColumn for preferred-column up/down ([#98](https://github.com/kohbis/rpos/issues/98)) ([18b8158](https://github.com/kohbis/rpos/commit/18b81580b18b7bc07eac32c69532a0f9e713e915))
+* report whether up/down/left/right changed the cell ([#101](https://github.com/kohbis/rpos/issues/101)) ([dc637bc](https://github.com/kohbis/rpos/commit/dc637bcc92b4d5f02987791bbd67871305e309da))
+* set vertical and horizontal wrap modes separately ([#102](https://github.com/kohbis/rpos/issues/102)) ([36673a4](https://github.com/kohbis/rpos/commit/36673a465fcbea1a4af412aeb03207ca6bae2b24))
+
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/checkout from 6 to 7 ([d69d40f](https://github.com/kohbis/rpos/commit/d69d40f22ab6e5b6930734d0fda26be7ed24bbb3))
+
 ## [0.5.0](https://github.com/kohbis/rpos/compare/v0.4.0...v0.5.0) (2026-10-17)
 
 
