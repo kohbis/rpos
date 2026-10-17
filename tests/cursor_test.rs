@@ -763,4 +763,167 @@ mod tests {
         cursor.down();
         assert_eq!(cursor.current(), (2, 1)); // not (2, 3)
     }
+
+    // VerticalPolicy::StickyColumn — land on short rows, restore on wider ones
+    fn sticky_cursor(widths: Vec<usize>) -> Cursor {
+        Table::new_jagged(widths)
+            .unwrap()
+            .vertical_policy(VerticalPolicy::StickyColumn)
+            .cursor
+    }
+
+    #[test]
+    fn sticky_down_lands_on_short_row_then_restores() {
+        let mut cursor = sticky_cursor(vec![4, 2, 4]);
+        cursor.set(0, 3).unwrap();
+        assert_eq!(cursor.preferred_column(), 3);
+
+        cursor.down();
+        assert_eq!(cursor.current(), (1, 1));
+        assert_eq!(cursor.preferred_column(), 3);
+
+        cursor.down();
+        assert_eq!(cursor.current(), (2, 3));
+        assert_eq!(cursor.preferred_column(), 3);
+    }
+
+    #[test]
+    fn sticky_up_restores_preferred_column() {
+        let mut cursor = sticky_cursor(vec![4, 2, 4]);
+        cursor.set(2, 3).unwrap();
+
+        cursor.up();
+        assert_eq!(cursor.current(), (1, 1));
+
+        cursor.up();
+        assert_eq!(cursor.current(), (0, 3));
+    }
+
+    #[test]
+    fn sticky_wrap_restores_across_the_edge() {
+        let mut cursor = sticky_cursor(vec![4, 2, 4]);
+        cursor.set(2, 3).unwrap();
+
+        cursor.down();
+        assert_eq!(cursor.current(), (0, 3));
+
+        cursor.up();
+        assert_eq!(cursor.current(), (2, 3));
+    }
+
+    #[test]
+    fn sticky_clamp_stays_on_the_edge_row() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .wrap_mode(WrapMode::Clamp)
+            .vertical_policy(VerticalPolicy::StickyColumn)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+
+        cursor.up();
+        assert_eq!(cursor.current(), (0, 3));
+
+        cursor.set(2, 3).unwrap();
+        cursor.down();
+        assert_eq!(cursor.current(), (2, 3));
+    }
+
+    #[test]
+    fn sticky_horizontal_move_updates_preferred_column() {
+        let mut cursor = sticky_cursor(vec![4, 2, 4]);
+        cursor.set(0, 3).unwrap();
+        cursor.down();
+        assert_eq!(cursor.current(), (1, 1));
+
+        cursor.left();
+        assert_eq!(cursor.current(), (1, 0));
+        assert_eq!(cursor.preferred_column(), 0);
+
+        cursor.down();
+        assert_eq!(cursor.current(), (2, 0));
+    }
+
+    #[test]
+    fn sticky_right_at_short_row_end_adopts_that_column() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .wrap_mode(WrapMode::Clamp)
+            .vertical_policy(VerticalPolicy::StickyColumn)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+        cursor.down();
+        assert_eq!(cursor.current(), (1, 1));
+
+        cursor.right(); // already at the row end; the current column becomes preferred
+        assert_eq!(cursor.preferred_column(), 1);
+
+        cursor.down();
+        assert_eq!(cursor.current(), (2, 1));
+    }
+
+    #[test]
+    fn sticky_across_rows_updates_preferred_column() {
+        let mut cursor = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .vertical_policy(VerticalPolicy::StickyColumn)
+            .horizontal_policy(HorizontalPolicy::AcrossRows)
+            .cursor;
+        cursor.set(0, 3).unwrap();
+
+        cursor.right();
+        assert_eq!(cursor.current(), (1, 0));
+        assert_eq!(cursor.preferred_column(), 0);
+
+        cursor.down();
+        assert_eq!(cursor.current(), (2, 0));
+    }
+
+    #[test]
+    fn sticky_set_column_sizes_keeps_preferred_column() {
+        let mut cursor = sticky_cursor(vec![4, 4]);
+        cursor.set(0, 3).unwrap();
+
+        cursor.set_column_sizes(vec![2, 4]).unwrap();
+        assert_eq!(cursor.current(), (0, 1));
+        assert_eq!(cursor.preferred_column(), 3);
+
+        cursor.down();
+        assert_eq!(cursor.current(), (1, 3));
+    }
+
+    #[test]
+    fn sticky_explicit_column_changes_update_preferred_column() {
+        let mut cursor = sticky_cursor(vec![4, 2, 4]);
+        cursor.set_index(3).unwrap();
+        assert_eq!(cursor.current(), (0, 3));
+        assert_eq!(cursor.preferred_column(), 3);
+
+        cursor.home();
+        assert_eq!(cursor.preferred_column(), 0);
+        cursor.down();
+        cursor.down();
+        assert_eq!(cursor.current(), (2, 0));
+
+        cursor.row_end();
+        assert_eq!(cursor.preferred_column(), 3);
+        cursor.up();
+        assert_eq!(cursor.current(), (1, 1));
+        cursor.up();
+        assert_eq!(cursor.current(), (0, 3));
+    }
+
+    #[test]
+    fn sticky_set_line_does_not_change_preferred_column() {
+        let mut cursor = sticky_cursor(vec![4, 2, 4]);
+        cursor.set(0, 3).unwrap();
+        cursor.down();
+        assert_eq!(cursor.current(), (1, 1));
+
+        cursor.set_line(2).unwrap();
+        assert_eq!(cursor.current(), (2, 1));
+        assert_eq!(cursor.preferred_column(), 3);
+
+        cursor.down(); // wrap to row 0 and restore
+        assert_eq!(cursor.current(), (0, 3));
+    }
 }

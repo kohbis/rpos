@@ -193,6 +193,21 @@ mod tests {
     }
 
     #[test]
+    fn jagged_table_with_sticky_column_policy() {
+        let mut table = Table::new_jagged(vec![4, 2, 4])
+            .unwrap()
+            .vertical_policy(VerticalPolicy::StickyColumn);
+        table.cursor.set(0, 3).unwrap();
+
+        table.cursor.down();
+        assert_eq!(table.cursor.current(), (1, 1));
+        table.cursor.down();
+        assert_eq!(table.cursor.current(), (2, 3));
+        assert_eq!(table.cursor.vertical_policy(), VerticalPolicy::StickyColumn);
+        assert_eq!(table.cursor.preferred_column(), 3);
+    }
+
+    #[test]
     fn builder_chains_wrap_mode_and_vertical_policy() {
         let mut table = Table::new_jagged(vec![4, 2, 4])
             .unwrap()

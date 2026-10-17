@@ -11,7 +11,7 @@ A cursor manager on table for Rust.
 
 - **Wrap / clamp** at table edges (`WrapMode`)
 - **Jagged rows** with per-row widths
-- **Vertical policies** for shorter rows: clamp column, or skip rows missing the column
+- **Vertical policies** for shorter rows: clamp column, skip rows missing the column, or remember a preferred column
 - **Horizontal policies**: stay within a row, or continue across rows
 - **Jump helpers**: `home` / `end` / `row_start` / `row_end`
 - **Linear index**: row-major `index` / `set_index`
@@ -137,6 +137,24 @@ fn main() {
 }
 ```
 
+`VerticalPolicy::StickyColumn` remembers the column from horizontal movement and from explicit column changes. Up and down land on the last cell of a shorter row, then restore the preferred column when the row is wide enough:
+
+```rust
+use rpos::{table::Table, VerticalPolicy};
+
+fn main() {
+    let mut table = Table::new_jagged(vec![4, 2, 4])
+        .unwrap()
+        .vertical_policy(VerticalPolicy::StickyColumn);
+
+    table.cursor.set(0, 3).unwrap();
+    table.cursor.down();
+    assert_eq!(table.cursor.current(), (1, 1)); // last cell of the short row
+    table.cursor.down();
+    assert_eq!(table.cursor.current(), (2, 3)); // preferred column restored
+}
+```
+
 ### Across-Row Horizontal Movement
 
 By default, left/right stay inside the current row. `HorizontalPolicy::AcrossRows` continues onto the next/previous row at the edges (useful for reading order over a flat list laid out as a grid):
@@ -230,6 +248,7 @@ fn main() {
 |---------|-------------|
 | `VerticalPolicy::ClampColumn` | On up/down, move to adjacent row and clamp column (default) |
 | `VerticalPolicy::SkipMissing` | On up/down, keep column and skip rows that lack it |
+| `VerticalPolicy::StickyColumn` | On up/down, keep a preferred column: land on the last cell of a shorter row, restore it on a wider row |
 
 ### HorizontalPolicy
 
@@ -249,6 +268,7 @@ fn main() {
 | `set_column_sizes` | Replace per-row widths (clamps cursor) |
 | `wrap_mode` / `set_wrap_mode` | Edge wrap vs clamp |
 | `vertical_policy` / `set_vertical_policy` | Jagged vertical behavior |
+| `preferred_column` | Column remembered by `StickyColumn` |
 | `horizontal_policy` / `set_horizontal_policy` | Horizontal row-crossing behavior |
 | `up` / `down` / `left` / `right` | Directional movement |
 | `home` / `end` / `row_start` / `row_end` | Jump helpers |
