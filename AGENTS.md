@@ -17,7 +17,7 @@ cargo doc --open     # Generate and view documentation
 
 ## Code Style
 
-- Use `anyhow` for error handling with `Result<T>` and `anyhow::bail!` for errors
+- Use `rpos::Error` and `rpos::Result` for error handling. Do not add `anyhow`.
 - Follow Rust 2021 edition conventions
 - Use `0-indexed` positions for cursor (line, column)
 - Keep modules focused: `cursor.rs` for Cursor logic, `table.rs` for Table logic

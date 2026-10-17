@@ -1,8 +1,6 @@
 use std::ops::RangeInclusive;
 
-use anyhow::Result;
-
-use crate::Cursor;
+use crate::{Cursor, Error, Result};
 
 /// Inclusive rectangle between an anchor cell and a focus cell.
 ///
@@ -40,14 +38,17 @@ impl Selection {
         let (line, column) = anchor;
         let sizes = cursor.column_sizes();
         if line >= sizes.len() {
-            anyhow::bail!(
-                "line must be less than line_size: {} (0-indexed)",
-                sizes.len()
-            );
+            return Err(Error::LineOutOfBounds {
+                line,
+                line_count: sizes.len(),
+            });
         }
-        let width = sizes[line];
-        if column >= width {
-            anyhow::bail!("column must be less than column_size: {width} (0-indexed)");
+        let column_size = sizes[line];
+        if column >= column_size {
+            return Err(Error::ColumnOutOfBounds {
+                column,
+                column_size,
+            });
         }
         Ok(Self::new(anchor, cursor.current()))
     }

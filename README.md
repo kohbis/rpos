@@ -368,6 +368,18 @@ fn main() {
 | `contains(column_sizes, position)` | Cell is inside the rectangle and exists on that row |
 | `cells(column_sizes)` | Existing cells in row-major order |
 
+### Error
+
+Fallible operations return `Result<T, Error>`.
+
+| Variant | When |
+|---------|------|
+| `InvalidColumnSizes` | Cursor row list is empty, or a row width is zero |
+| `InvalidTableSize` | Table height or width is zero, or a jagged width list is empty or contains zero |
+| `LineOutOfBounds` | Line is outside the table |
+| `ColumnOutOfBounds` | Column is outside that row |
+| `IndexOutOfBounds` | Flat index is outside the cell count |
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
