@@ -66,6 +66,20 @@ fn main() {
 }
 ```
 
+Each move returns `true` when the cell changes. With clamp mode, a move into the edge returns `false`:
+
+```rust
+use rpos::{table::Table, WrapMode};
+
+fn main() {
+    let mut table = Table::new(3, 4).unwrap().wrap_mode(WrapMode::Clamp);
+
+    assert!(!table.cursor.up());
+    assert!(table.cursor.down());
+    assert_eq!(table.cursor.current(), (1, 0));
+}
+```
+
 `shift_line` and `shift_column` repeat that step. Positive values move down and right. They stop at the edge instead of wrapping, so a count larger than the table does not spin:
 
 ```rust
@@ -316,7 +330,7 @@ fn main() {
 | `vertical_policy` / `set_vertical_policy` | Jagged vertical behavior |
 | `preferred_column` | Column remembered by `StickyColumn` |
 | `horizontal_policy` / `set_horizontal_policy` | Horizontal row-crossing behavior |
-| `up` / `down` / `left` / `right` | Directional movement |
+| `up` / `down` / `left` / `right` | Directional movement; `true` when the cell changes |
 | `shift_line` / `shift_column` | Repeat that step, stopping at the edge |
 | `home` / `end` / `row_start` / `row_end` | Jump helpers |
 
