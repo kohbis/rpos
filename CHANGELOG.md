@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/kohbis/rpos/compare/v0.6.0...v0.7.0) (2026-10-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* public Result is Result<T, rpos::Error> instead of anyhow::Result. set, set_line, and set_column no longer prefix errors with "invalid cursor".
+
+### Features
+
+* replace anyhow with rpos::Error ([#103](https://github.com/kohbis/rpos/issues/103)) ([63ff1f9](https://github.com/kohbis/rpos/commit/63ff1f93f97a7b8ac29fd1207cce73b0cc381fba))
+* represent cells missing in the middle of a row ([#105](https://github.com/kohbis/rpos/issues/105)) ([1249820](https://github.com/kohbis/rpos/commit/1249820447baa3b4a1f849d10b607d434c77974a))
+
 ## [0.6.0](https://github.com/kohbis/rpos/compare/v0.5.0...v0.6.0) (2026-10-17)
 
 
